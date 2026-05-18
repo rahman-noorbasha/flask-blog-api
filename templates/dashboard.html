@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Flask Blog App</title>
     <style>
+        /* Scale UI down 10% globally */
+        :root { --ui-scale: 0.9; }
+        @supports (zoom: .9) {
+            body { zoom: .9; }
+        }
+        @supports not (zoom: .9) {
+            body { transform: scale(var(--ui-scale)); transform-origin: top center; width: calc(100% / var(--ui-scale)); }
+        }
+
         * {
             margin: 0;
             padding: 0;

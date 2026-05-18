@@ -1,0 +1,8 @@
+/* Global UI scale helper (apply by including in templates) */
+:root { --ui-scale: 0.9; }
+@supports (zoom: .9) {
+    body { zoom: .9; }
+}
+@supports not (zoom: .9) {
+    body { transform: scale(var(--ui-scale)); transform-origin: top center; width: calc(100% / var(--ui-scale)); }
+}
