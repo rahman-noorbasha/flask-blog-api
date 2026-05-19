@@ -221,6 +221,23 @@
             background: white;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
         }
+        .search-container {
+    margin: 30px auto;
+    max-width: 600px;
+}
+
+.search-container form {
+    display: flex;
+    gap: 10px;
+}
+
+.search-input {
+    flex: 1;
+    padding: 14px;
+    border-radius: 10px;
+    border: 2px solid #e0e0e0;
+    font-size: 15px;
+}
 
         .alerts {
             margin-bottom: 30px;
@@ -514,6 +531,20 @@
                 <a href="/dashboard" class="btn btn-secondary">Refresh</a>
             </div>
         </div>
+        <div class="search-container">
+    <form method="GET" action="/dashboard">
+        <input
+            type="text"
+            name="search"
+            placeholder="Search your posts..."
+            value="{{ search }}"
+            class="search-input"
+        >
+        <button type="submit" class="btn btn-primary">
+            Search
+        </button>
+    </form>
+</div>
 
         <div class="posts-section">
             <h2 class="section-title">Your Blog Posts</h2>

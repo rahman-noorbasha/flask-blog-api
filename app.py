@@ -4,7 +4,7 @@ import sqlite3
 import os
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY")
+app.secret_key = os.environ.get("SECRET_KEY","local-dev-secret-key")
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -120,10 +120,24 @@ def login():
 @app.route("/dashboard")
 @login_required
 def dashboard():
+    search = request.args.get('search', '')
     conn = sqlite3.connect("users.db")
     cursor = conn.cursor()
-
-    cursor.execute(
+    if search:
+        cursor.execute(
+            """
+            SELECT * FROM posts
+            WHERE user_id = ?
+            AND (title LIKE ? OR content LIKE ?)
+            """,
+            (
+                current_user.id,
+                f'%{search}%',
+                f'%{search}%'
+            )
+        )
+    else:
+        cursor.execute(
         "SELECT * FROM posts WHERE user_id=?",
         (current_user.id,)
     )
@@ -131,7 +145,7 @@ def dashboard():
     posts = cursor.fetchall()
     conn.close()
 
-    return render_template("dashboard.html", posts=posts)
+    return render_template("dashboard.html", posts=posts,search=search)
 
 
 @app.route("/create", methods=["GET", "POST"])
