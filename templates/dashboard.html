@@ -494,6 +494,32 @@
                 width: 100%;
             }
         }
+        .pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    margin-top: 40px;
+}
+
+.pagination a {
+    padding: 10px 20px;
+    background: white;
+    color: #667eea;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+.pagination a:hover {
+    background: #667eea;
+    color: white;
+}
+
+.pagination span {
+    color: white;
+    font-weight: 600;
+}
     </style>
 </head>
 <body>
@@ -584,6 +610,17 @@
                     <a href="/create" class="btn btn-primary">Create Your First Post</a>
                 </div>
             {% endif %}
+            <div class="pagination">
+                {% if page > 1 %}
+                    <a href="{{ url_for('dashboard', page=page-1, search=search) }}">Previous</a>
+                {% endif %}
+
+                <span>Page {{ page }} of {{ total_pages }}</span>
+
+                {% if page < total_pages %}
+                    <a href="{{ url_for('dashboard', page=page+1, search=search) }}">Next</a>
+                {% endif %}
+            </div>
         </div>
     </div>
 </body>

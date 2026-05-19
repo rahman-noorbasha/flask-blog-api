@@ -121,31 +121,69 @@ def login():
 @login_required
 def dashboard():
     search = request.args.get('search', '')
+    page = request.args.get("page", 1, type=int)
+    per_page = 5
+
     conn = sqlite3.connect("users.db")
     cursor = conn.cursor()
+
     if search:
         cursor.execute(
-            """
-            SELECT * FROM posts
-            WHERE user_id = ?
-            AND (title LIKE ? OR content LIKE ?)
-            """,
+            "SELECT COUNT(*) FROM posts WHERE user_id=? AND (title LIKE ? OR content LIKE ?)",
             (
                 current_user.id,
                 f'%{search}%',
                 f'%{search}%'
             )
         )
+        total_posts = cursor.fetchone()[0]
+        total_pages = max(1, (total_posts + per_page - 1) // per_page)
+
+        if page < 1:
+            page = 1
+        if page > total_pages:
+            page = total_pages
+
+        offset = (page - 1) * per_page
+        cursor.execute(
+            "SELECT * FROM posts WHERE user_id = ? AND (title LIKE ? OR content LIKE ?) LIMIT ? OFFSET ?",
+            (
+                current_user.id,
+                f'%{search}%',
+                f'%{search}%',
+                per_page,
+                offset
+            )
+        )
     else:
         cursor.execute(
-        "SELECT * FROM posts WHERE user_id=?",
-        (current_user.id,)
-    )
+            "SELECT COUNT(*) FROM posts WHERE user_id=?",
+            (current_user.id,)
+        )
+        total_posts = cursor.fetchone()[0]
+        total_pages = max(1, (total_posts + per_page - 1) // per_page)
+
+        if page < 1:
+            page = 1
+        if page > total_pages:
+            page = total_pages
+
+        offset = (page - 1) * per_page
+        cursor.execute(
+            "SELECT * FROM posts WHERE user_id=? LIMIT ? OFFSET ?",
+            (current_user.id, per_page, offset)
+        )
 
     posts = cursor.fetchall()
     conn.close()
 
-    return render_template("dashboard.html", posts=posts,search=search)
+    return render_template(
+        "dashboard.html",
+        posts=posts,
+        search=search,
+        total_pages=total_pages,
+        page=page
+    )
 
 
 @app.route("/create", methods=["GET", "POST"])
