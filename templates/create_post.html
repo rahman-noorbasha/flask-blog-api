@@ -108,6 +108,41 @@
             color: #764ba2;
         }
 
+        .alerts {
+            margin-bottom: 30px;
+        }
+
+        .alert {
+            padding: 14px 16px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            animation: alertSlide 0.4s ease-out;
+        }
+
+        .alert-danger {
+            background-color: #fff1f1;
+            color: #c33;
+            border-left: 4px solid #c33;
+        }
+
+        .alert-success {
+            background-color: #f2fff2;
+            color: #2a7f2a;
+            border-left: 4px solid #2a7f2a;
+        }
+
+        @keyframes alertSlide {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
         .container {
             position: relative;
             z-index: 2;
@@ -296,6 +331,18 @@
             <h1>{{ header_title }}</h1>
             <p>{{ header_desc }}</p>
         </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="alerts">
+                    {% for category, message in messages %}
+                        <div class="alert {{ 'alert-success' if category == 'success' else 'alert-danger' }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
 
         <div class="create-wrapper">
             <form method="POST" action="{{ action_url }}" class="create-form">

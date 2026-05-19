@@ -81,10 +81,10 @@ def register():
                 (username, password)
             )
             conn.commit()
-            flash("Registration successful!")
+            flash("Registration successful!", "success")
             return redirect(url_for("login"))
         except:
-            flash("Username already exists")
+            flash("Username already exists", "error")
 
         conn.close()
 
@@ -112,7 +112,7 @@ def login():
             login_user(User(user[0], user[1]))
             return redirect(url_for("dashboard"))
         else:
-            flash("Invalid credentials")
+            flash("Invalid credentials", "error")
 
     return render_template("login.html")
 
@@ -152,7 +152,7 @@ def create():
         conn.commit()
         conn.close()
 
-        flash("Post created successfully.")
+        flash("Post created successfully.", "success")
         return redirect(url_for("dashboard"), code=303)
 
     return render_template(
@@ -182,7 +182,7 @@ def edit_post(post_id):
 
     if not post:
         conn.close()
-        flash("Post not found or access denied.")
+        flash("Post not found or access denied.", "error")
         return redirect(url_for("dashboard"))
 
     if request.method == "POST":
@@ -196,7 +196,7 @@ def edit_post(post_id):
         conn.commit()
         conn.close()
 
-        flash("Post updated successfully.")
+        flash("Post updated successfully.", "success")
         return redirect(url_for("dashboard"), code=303)
 
     conn.close()
@@ -226,7 +226,7 @@ def delete_post(post_id):
     conn.commit()
     conn.close()
 
-    flash("Post deleted successfully.")
+    flash("Post deleted successfully.", "success")
     return redirect(url_for("dashboard"), code=303)
 
 
