@@ -29,7 +29,8 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT,
         content TEXT,
-        user_id INTEGER
+        user_id INTEGER,
+        created_at TIMESTAMP
     )
     """)
 
@@ -146,7 +147,7 @@ def dashboard():
 
         offset = (page - 1) * per_page
         cursor.execute(
-            "SELECT * FROM posts WHERE user_id = ? AND (title LIKE ? OR content LIKE ?) LIMIT ? OFFSET ?",
+            "SELECT * FROM posts WHERE user_id = ? AND (title LIKE ? OR content LIKE ?) ORDER BY created_at DESC LIMIT ? OFFSET ?",
             (
                 current_user.id,
                 f'%{search}%',
@@ -170,7 +171,7 @@ def dashboard():
 
         offset = (page - 1) * per_page
         cursor.execute(
-            "SELECT * FROM posts WHERE user_id=? LIMIT ? OFFSET ?",
+            "SELECT * FROM posts WHERE user_id=? ORDER BY created_at DESC LIMIT ? OFFSET ?",
             (current_user.id, per_page, offset)
         )
 
@@ -197,9 +198,12 @@ def create():
         cursor = conn.cursor()
 
         cursor.execute(
-            "INSERT INTO posts (title, content, user_id) VALUES (?, ?, ?)",
-            (title, content, current_user.id)
-        )
+    """
+    INSERT INTO posts (title, content, user_id, created_at)
+    VALUES (?, ?, ?, datetime('now'))
+    """,
+    (title, content, current_user.id)
+)
 
         conn.commit()
         conn.close()
