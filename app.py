@@ -36,6 +36,23 @@ def init_db():
         attachment TEXT
     )
     """)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS likes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    post_id INTEGER
+)
+""")
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    content TEXT,
+    user_id INTEGER,
+    post_id INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+""")
 
     conn.commit()
     conn.close()
@@ -179,11 +196,26 @@ def dashboard():
         )
 
     posts = cursor.fetchall()
+    post_data = []
+
+    for post in posts:
+        cursor.execute(
+        "SELECT COUNT(*) FROM likes WHERE post_id=?",
+        (post[0],)
+         )
+        like_count = cursor.fetchone()[0]
+        cursor.execute(
+    "SELECT COUNT(*) FROM comments WHERE post_id=?",
+    (post[0],)
+)
+        comment_count = cursor.fetchone()[0]
+        post_data.append((post, like_count, comment_count))
+
     conn.close()
 
     return render_template(
         "dashboard.html",
-        posts=posts,
+        posts= post_data,
         search=search,
         total_pages=total_pages,
         page=page
@@ -329,6 +361,70 @@ def delete_account():
     flash("Your account has been deleted successfully.", "success")
 
     return redirect(url_for("login"))
+@app.route("/like/<int:post_id>", methods=["POST"])
+@login_required
+def like_post(post_id):
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "SELECT * FROM likes WHERE user_id=? AND post_id=?",
+        (current_user.id, post_id)
+    )
+
+    existing_like = cursor.fetchone()
+
+    if existing_like:
+        cursor.execute(
+            "DELETE FROM likes WHERE user_id=? AND post_id=?",
+            (current_user.id, post_id)
+        )
+    else:
+        cursor.execute(
+            "INSERT INTO likes (user_id, post_id) VALUES (?, ?)",
+            (current_user.id, post_id)
+        )
+
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("dashboard"))
+@app.route("/comment/<int:post_id>", methods=["POST"])
+@login_required
+def comment_post(post_id):
+    content = request.form["comment"]
+
+    if content.strip():
+        conn = sqlite3.connect("users.db")
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            INSERT INTO comments (content, user_id, post_id)
+            VALUES (?, ?, ?)
+            """,
+            (content, current_user.id, post_id)
+        )
+
+        conn.commit()
+        conn.close()
+
+    return redirect(url_for("dashboard"))
+@app.route("/post/<int:post_id>")
+def view_post(post_id):
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM posts WHERE id=?", (post_id,))
+    post = cursor.fetchone()
+
+    conn.close()
+
+    if not post:
+        flash("Post not found", "error")
+        return redirect(url_for("dashboard"))
+
+    return render_template("view_post.html", post=post)
 
 
 if __name__ == "__main__":

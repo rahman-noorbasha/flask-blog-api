@@ -1,17 +1,28 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Flask Blog App</title>
     <style>
         /* Scale UI down 10% globally */
-        :root { --ui-scale: 0.9; }
-        @supports (zoom: .9) {
-            body { zoom: .9; }
+        :root {
+            --ui-scale: 0.9;
         }
+
+        @supports (zoom: .9) {
+            body {
+                zoom: .9;
+            }
+        }
+
         @supports not (zoom: .9) {
-            body { transform: scale(var(--ui-scale)); transform-origin: top center; width: calc(100% / var(--ui-scale)); }
+            body {
+                transform: scale(var(--ui-scale));
+                transform-origin: top center;
+                width: calc(100% / var(--ui-scale));
+            }
         }
 
         * {
@@ -44,6 +55,7 @@
             0% {
                 transform: translate(0, 0);
             }
+
             100% {
                 transform: translate(50px, 50px);
             }
@@ -158,6 +170,7 @@
                 opacity: 0;
                 transform: translateY(-20px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -221,23 +234,24 @@
             background: white;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
         }
+
         .search-container {
-    margin: 30px auto;
-    max-width: 600px;
-}
+            margin: 30px auto;
+            max-width: 600px;
+        }
 
-.search-container form {
-    display: flex;
-    gap: 10px;
-}
+        .search-container form {
+            display: flex;
+            gap: 10px;
+        }
 
-.search-input {
-    flex: 1;
-    padding: 14px;
-    border-radius: 10px;
-    border: 2px solid #e0e0e0;
-    font-size: 15px;
-}
+        .search-input {
+            flex: 1;
+            padding: 14px;
+            border-radius: 10px;
+            border: 2px solid #e0e0e0;
+            font-size: 15px;
+        }
 
         .alerts {
             margin-bottom: 30px;
@@ -379,7 +393,8 @@
             margin: 0;
         }
 
-        .edit-btn, .delete-btn {
+        .edit-btn,
+        .delete-btn {
             flex: 1;
             width: 100%;
             padding: 10px 15px;
@@ -440,9 +455,12 @@
         }
 
         @keyframes float {
-            0%, 100% {
+
+            0%,
+            100% {
                 transform: translateY(0);
             }
+
             50% {
                 transform: translateY(-10px);
             }
@@ -494,55 +512,59 @@
                 width: 100%;
             }
         }
+
         .pagination {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 20px;
-    margin-top: 40px;
-}
-.attachment-box {
-    margin-top: 12px;
-}
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            margin-top: 40px;
+        }
 
-.attachment-box a {
-    color: #007bff;
-    text-decoration: none;
-    font-weight: 600;
-}
+        .attachment-box {
+            margin-top: 12px;
+        }
 
-.pagination a {
-    padding: 10px 20px;
-    background: white;
-    color: #667eea;
-    text-decoration: none;
-    border-radius: 8px;
-    font-weight: 600;
-}
+        .attachment-box a {
+            color: #007bff;
+            text-decoration: none;
+            font-weight: 600;
+        }
 
-.pagination a:hover {
-    background: #667eea;
-    color: white;
-}
+        .pagination a {
+            padding: 10px 20px;
+            background: white;
+            color: #667eea;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+        }
 
-.pagination span {
-    color: white;
-    font-weight: 600;
-}
-.delete-account-btn {
-    background: #dc3545;
-    color: white;
-    border: none;
-    padding: 10px 16px;
-    border-radius: 6px;
-    cursor: pointer;
-}
+        .pagination a:hover {
+            background: #667eea;
+            color: white;
+        }
 
-.delete-account-btn:hover {
-    background: #b02a37;
-}
+        .pagination span {
+            color: white;
+            font-weight: 600;
+        }
+
+        .delete-account-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .delete-account-btn:hover {
+            background: #b02a37;
+        }
     </style>
 </head>
+
 <body>
     <nav class="navbar">
         <div class="navbar-content">
@@ -553,29 +575,28 @@
                     <div class="user-name">{{ current_user.username }}</div>
                 </div>
                 <a href="/logout" class="logout-btn">Logout</a>
-                <form method="POST"
-      action="{{ url_for('delete_account') }}"
-      onsubmit="return confirm('Are you sure? This will permanently delete your account and all posts.');">
+                <form method="POST" action="{{ url_for('delete_account') }}"
+                    onsubmit="return confirm('Are you sure? This will permanently delete your account and all posts.');">
 
-    <button type="submit" class="delete-account-btn">
-        Delete Account
-    </button>
-</form>
+                    <button type="submit" class="delete-account-btn">
+                        Delete Account
+                    </button>
+                </form>
             </div>
         </div>
     </nav>
 
     <div class="container">
         {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <div class="alerts">
-                    {% for category, message in messages %}
-                        <div class="alert {{ 'alert-success' if category == 'success' else 'alert-danger' }}">
-                            {{ message }}
-                        </div>
-                    {% endfor %}
-                </div>
-            {% endif %}
+        {% if messages %}
+        <div class="alerts">
+            {% for category, message in messages %}
+            <div class="alert {{ 'alert-success' if category == 'success' else 'alert-danger' }}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
         {% endwith %}
 
         <div class="dashboard-header">
@@ -587,77 +608,92 @@
             </div>
         </div>
         <div class="search-container">
-    <form method="GET" action="/dashboard">
-        <input
-            type="text"
-            name="search"
-            placeholder="Search your posts..."
-            value="{{ search }}"
-            class="search-input"
-        >
-        <button type="submit" class="btn btn-primary">
-            Search
-        </button>
-    </form>
-</div>
+            <form method="GET" action="/dashboard">
+                <input type="text" name="search" placeholder="Search your posts..." value="{{ search }}"
+                    class="search-input">
+                <button type="submit" class="btn btn-primary">
+                    Search
+                </button>
+            </form>
+        </div>
 
         <div class="posts-section">
             <h2 class="section-title">Your Blog Posts</h2>
 
             {% if posts %}
-                <div class="posts-grid">
-                    {% for post in posts %}
-                        <div class="post-card">
-                            <div class="post-header">
-                                <h3 class="post-title">{{ post[1] }}</h3>
-                                <div class="post-number">{{ loop.index }}</div>
-                            </div>
+            <div class="posts-grid">
+                {% for post, like_count, comment_count in posts %}
+                <div class="post-card">
+                    <div class="post-header">
+                        <h3 class="post-title">{{ post[1] }}</h3>
+                        <div class="post-number">{{ loop.index }}</div>
+                    </div>
 
-                            <div class="post-content">
-                                {{ post[2][:150] }}{% if post[2]|length > 150 %}...{% endif %}
-                            </div>
-                            {% if post[5] %}
-                            <div class="attachment-box">
-                            <a href="{{ url_for('static', filename='uploads/' + post[5]) }}" target="_blank">
-                                📎 Open Attachment
-                            </a>
-                            </div>
-                            {% endif %}
+                    <div class="post-content">
+                        {{ post[2][:150] }}{% if post[2]|length > 150 %}...{% endif %}
+                    </div>
+                    {% if post[5] %}
+                    <div class="attachment-box">
+                        <a href="{{ url_for('static', filename='uploads/' + post[5]) }}" target="_blank">
+                            📎 Open Attachment
+                        </a>
+                    </div>
+                    {% endif %}
 
-                            <div class="post-meta">
-                                <div class="meta-item">📅 Posted: {{ post[4] }}</div>
-                                <div class="meta-item">✍️ By You</div>
-                            </div>
+                    <div class="post-meta">
+                        <div class="meta-item">📅 Posted: {{ post[4] }}</div>
+                        <div class="meta-item">✍️ By You</div>
+                    </div>
 
-                            <div class="post-actions">
-                                <a href="{{ url_for('edit_post', post_id=post[0]) }}" class="edit-btn">Edit</a>
-                                <form method="POST" action="{{ url_for('delete_post', post_id=post[0]) }}" style="flex:1; margin:0;" onsubmit="return confirm('Delete this post?');">
-                                    <button type="submit" class="delete-btn">Delete</button>
-                                </form>
-                            </div>
-                        </div>
-                    {% endfor %}
+                    <div class="post-actions">
+                        <a href="{{ url_for('edit_post', post_id=post[0]) }}" class="edit-btn">Edit</a>
+                        <form method="POST" action="{{ url_for('delete_post', post_id=post[0]) }}"
+                            style="flex:1; margin:0;" onsubmit="return confirm('Delete this post?');">
+                            <button type="submit" class="delete-btn">Delete</button>
+                        </form>
+
+                    </div>
+                    <form method="POST" action="{{ url_for('like_post', post_id=post[0]) }}">
+                        <button type="submit" class="like-btn">
+                            ❤️ {{ like_count }}
+                        </button>
+                    </form>
+                    <form method="POST" action="{{ url_for('comment_post', post_id=post[0]) }}">
+                        <input type="text" name="comment" placeholder="Add comment..." required>
+                        <button type="submit">💬 {{ comment_count }}</button>
+                    </form>
+                    <button onclick="copyLink('{{ url_for('view_post', post_id=post[0], _external=True) }}')">
+                        🔗 Share
+                    </button>
                 </div>
+                {% endfor %}
+            </div>
             {% else %}
-                <div class="empty-state">
-                    <div class="empty-icon">📭</div>
-                    <h3 class="empty-title">No Posts Yet</h3>
-                    <p class="empty-text">You can create your first story by clicking the button above.</p>
-                    <a href="/create" class="btn btn-primary">Create Your First Post</a>
-                </div>
+            <div class="empty-state">
+                <div class="empty-icon">📭</div>
+                <h3 class="empty-title">No Posts Yet</h3>
+                <p class="empty-text">You can create your first story by clicking the button above.</p>
+                <a href="/create" class="btn btn-primary">Create Your First Post</a>
+            </div>
             {% endif %}
             <div class="pagination">
                 {% if page > 1 %}
-                    <a href="{{ url_for('dashboard', page=page-1, search=search) }}">Previous</a>
+                <a href="{{ url_for('dashboard', page=page-1, search=search) }}">Previous</a>
                 {% endif %}
 
                 <span>Page {{ page }} of {{ total_pages }}</span>
 
-                {% if page < total_pages %}
-                    <a href="{{ url_for('dashboard', page=page+1, search=search) }}">Next</a>
-                {% endif %}
+                {% if page < total_pages %} <a href="{{ url_for('dashboard', page=page+1, search=search) }}">Next</a>
+                    {% endif %}
             </div>
         </div>
     </div>
+    <script>
+function copyLink(link) {
+    navigator.clipboard.writeText(link);
+    alert("Post link copied!");
+}
+</script>
 </body>
+
 </html>
