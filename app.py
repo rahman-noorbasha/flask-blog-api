@@ -1,9 +1,11 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+from werkzeug.utils import secure_filename
 import sqlite3
 import os
 
 app = Flask(__name__)
+app.config["UPLOAD_FOLDER"] = "static/uploads"
 app.secret_key = os.environ.get("SECRET_KEY","local-dev-secret-key")
 
 login_manager = LoginManager()
@@ -30,7 +32,8 @@ def init_db():
         title TEXT,
         content TEXT,
         user_id INTEGER,
-        created_at TIMESTAMP
+        created_at TIMESTAMP,
+        attachment TEXT
     )
     """)
 
@@ -193,16 +196,21 @@ def create():
     if request.method == "POST":
         title = request.form["title"]
         content = request.form["content"]
+        file = request.files["attachment"]
+        filename = None
 
+        if file and file.filename:
+            filename = secure_filename(file.filename)
+            file.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
         conn = sqlite3.connect("users.db")
         cursor = conn.cursor()
 
         cursor.execute(
     """
-    INSERT INTO posts (title, content, user_id, created_at)
-    VALUES (?, ?, ?, datetime('now'))
+    INSERT INTO posts (title, content, user_id, created_at, attachment)
+    VALUES (?, ?, ?, datetime('now'), ?)
     """,
-    (title, content, current_user.id)
+    (title, content, current_user.id, filename)
 )
 
         conn.commit()
@@ -244,10 +252,15 @@ def edit_post(post_id):
     if request.method == "POST":
         title = request.form["title"]
         content = request.form["content"]
-
+        file = request.files["attachment"]
+        filename = post[5]
+        if file and file.filename:
+            filename = secure_filename(file.filename)
+            file.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
+        
         cursor.execute(
-            "UPDATE posts SET title=?, content=? WHERE id=? AND user_id=?",
-            (title, content, post_id, current_user.id)
+            "UPDATE posts SET title=?, content=?, attachment=? WHERE id=? AND user_id=?",
+            (title, content, filename, post_id, current_user.id,)
         )
         conn.commit()
         conn.close()
@@ -290,6 +303,31 @@ def delete_post(post_id):
 @login_required
 def logout():
     logout_user()
+    return redirect(url_for("login"))
+@app.route("/delete-account", methods=["POST"])
+@login_required
+def delete_account():
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+
+    # Delete user's posts
+    cursor.execute(
+        "DELETE FROM posts WHERE user_id=?",
+        (current_user.id,)
+    )
+
+    # Delete user account
+    cursor.execute(
+        "DELETE FROM users WHERE id=?",
+        (current_user.id,)
+    )
+
+    conn.commit()
+    conn.close()
+
+    logout_user()
+    flash("Your account has been deleted successfully.", "success")
+
     return redirect(url_for("login"))
 
 

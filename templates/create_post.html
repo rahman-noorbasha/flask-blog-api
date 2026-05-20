@@ -207,7 +207,7 @@
         label {
             display: block;
             margin-bottom: 12px;
-            color: #333;
+            color: #f70d0d;
             font-weight: 700;
             font-size: 15px;
             text-transform: uppercase;
@@ -314,6 +314,24 @@
                 min-height: 240px;
             }
         }
+        .form-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.cancel-btn {
+    padding: 10px 18px;
+    text-decoration: none;
+    background: #ed0808;
+    color: #f7f4f4;
+    border-radius: 6px;
+    font-weight: 500;
+}
+
+.cancel-btn:hover {
+    background: #bbb;
+}
     </style>
 </head>
 <body>
@@ -345,7 +363,7 @@
         {% endwith %}
 
         <div class="create-wrapper">
-            <form method="POST" action="{{ action_url }}" class="create-form">
+            <form method="POST" enctype="multipart/form-data" action="{{ action_url }}" class="create-form">
                 <div class="form-group">
                     <label for="title">Post Title</label>
                     <input
@@ -367,9 +385,12 @@
                         placeholder="Write your content here..."
                         required
                     >{{ content_value|default('') }}</textarea>
+                    <label>Attachment</label>
+                    <input type="file" name="attachment">
                 </div>
 
                 <button type="submit" class="post-btn">{{ btn_text }}</button>
+                <a href="{{ url_for('dashboard') }}" class="cancel-btn">Cancel</a>
             </form>
         </div>
     </div>
