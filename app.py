@@ -158,6 +158,24 @@ def dashboard():
             )
         )
         total_posts = cursor.fetchone()[0]
+        cursor.execute(
+            "SELECT COUNT(*) FROM likes WHERE post_id IN (SELECT id FROM posts WHERE user_id=? AND (title LIKE ? OR content LIKE ?))",
+            (
+                current_user.id,
+                f'%{search}%',
+                f'%{search}%'
+            )
+        )
+        total_likes = cursor.fetchone()[0]
+        cursor.execute(
+            "SELECT COUNT(*) FROM comments WHERE post_id IN (SELECT id FROM posts WHERE user_id=? AND (title LIKE ? OR content LIKE ?))",
+            (
+                current_user.id,
+                f'%{search}%',
+                f'%{search}%'
+            )
+        )
+        total_comments = cursor.fetchone()[0]
         total_pages = max(1, (total_posts + per_page - 1) // per_page)
 
         if page < 1:
@@ -182,6 +200,16 @@ def dashboard():
             (current_user.id,)
         )
         total_posts = cursor.fetchone()[0]
+        cursor.execute(
+            "SELECT COUNT(*) FROM likes WHERE post_id IN (SELECT id FROM posts WHERE user_id=?)",
+            (current_user.id,)
+        )
+        total_likes = cursor.fetchone()[0]
+        cursor.execute(
+            "SELECT COUNT(*) FROM comments WHERE post_id IN (SELECT id FROM posts WHERE user_id=?)",
+            (current_user.id,)
+        )
+        total_comments = cursor.fetchone()[0]
         total_pages = max(1, (total_posts + per_page - 1) // per_page)
 
         if page < 1:
@@ -215,8 +243,11 @@ def dashboard():
 
     return render_template(
         "dashboard.html",
-        posts= post_data,
+        posts=post_data,
         search=search,
+        total_posts=total_posts,
+        total_likes=total_likes,
+        total_comments=total_comments,
         total_pages=total_pages,
         page=page
     )
