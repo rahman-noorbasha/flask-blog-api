@@ -228,17 +228,27 @@ def dashboard():
 
     for post in posts:
         cursor.execute(
-        "SELECT COUNT(*) FROM likes WHERE post_id=?",
-        (post[0],)
-         )
+            "SELECT COUNT(*) FROM likes WHERE post_id=?",
+            (post[0],)
+        )
         like_count = cursor.fetchone()[0]
         cursor.execute(
-    "SELECT COUNT(*) FROM comments WHERE post_id=?",
-    (post[0],)
-)
+            "SELECT COUNT(*) FROM comments WHERE post_id=?",
+            (post[0],)
+        )
         comment_count = cursor.fetchone()[0]
-        post_data.append((post, like_count, comment_count))
-
+        cursor.execute(
+            """
+            SELECT comments.content, users.username
+            FROM comments
+            JOIN users ON comments.user_id = users.id
+            WHERE comments.post_id=?
+            ORDER BY comments.created_at DESC
+            """,
+            (post[0],)
+        )
+        comments = cursor.fetchall()
+        post_data.append((post, like_count, comment_count, comments))
     conn.close()
 
     return render_template(

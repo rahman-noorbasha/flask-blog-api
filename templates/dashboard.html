@@ -349,6 +349,7 @@
                 opacity: 0;
                 transform: translateY(12px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -360,6 +361,7 @@
                 opacity: 0;
                 transform: translateY(-8px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -598,6 +600,7 @@
         }
 
         @keyframes float {
+
             0%,
             100% {
                 transform: translateY(0);
@@ -698,6 +701,19 @@
                 padding: 24px;
             }
         }
+        .comments-section {
+    margin-top: 15px;
+    padding-top: 10px;
+    border-top: 1px solid #ddd;
+}
+
+.comment-item {
+    background: #f5f5f5;
+    padding: 8px 10px;
+    border-radius: 6px;
+    margin-top: 8px;
+    font-size: 13px;
+}
     </style>
 </head>
 
@@ -735,7 +751,8 @@
         <div class="dashboard-header">
             <section class="hero-panel">
                 <h1>Welcome back, {{ current_user.username }}!</h1>
-                <p>Manage your posts in one beautiful, organized dashboard. Create new content, review drafts, and keep your blog workflow streamlined.</p>
+                <p>Manage your posts in one beautiful, organized dashboard. Create new content, review drafts, and keep
+                    your blog workflow streamlined.</p>
                 <div class="action-buttons">
                     <a href="/create" class="btn btn-primary">Create New Post</a>
                     <a href="/dashboard" class="btn btn-secondary">Refresh</a>
@@ -765,7 +782,7 @@
 
                     {% if posts %}
                     <div class="posts-grid">
-                        {% for post, like_count, comment_count in posts %}
+                        {% for post, like_count, comment_count, comments in posts %}
                         <div class="post-card">
                             <div class="post-header">
                                 <h3 class="post-title">{{ post[1] }}</h3>
@@ -778,7 +795,8 @@
 
                             {% if post[5] %}
                             <div class="attachment-box">
-                                <a href="{{ url_for('static', filename='uploads/' + post[5]) }}" target="_blank">📎 Open Attachment</a>
+                                <a href="{{ url_for('static', filename='uploads/' + post[5]) }}" target="_blank">📎 Open
+                                    Attachment</a>
                             </div>
                             {% endif %}
 
@@ -791,7 +809,8 @@
 
                             <div class="post-actions">
                                 <a href="{{ url_for('edit_post', post_id=post[0]) }}" class="edit-btn">Edit</a>
-                                <form method="POST" action="{{ url_for('delete_post', post_id=post[0]) }}" onsubmit="return confirm('Delete this post?');">
+                                <form method="POST" action="{{ url_for('delete_post', post_id=post[0]) }}"
+                                    onsubmit="return confirm('Delete this post?');">
                                     <button type="submit" class="delete-btn">Delete</button>
                                 </form>
                             </div>
@@ -800,12 +819,23 @@
                                 <button type="submit" class="like-btn">❤️ Like</button>
                             </form>
 
-                            <form class="comment-form" method="POST" action="{{ url_for('comment_post', post_id=post[0]) }}">
-                                <input type="text" name="comment" placeholder="Add a comment..." required class="comment-input">
+                            <form class="comment-form" method="POST"
+                                action="{{ url_for('comment_post', post_id=post[0]) }}">
+                                <input type="text" name="comment" placeholder="Add a comment..." required
+                                    class="comment-input">
                                 <button type="submit" class="comment-submit">💬 {{ comment_count }}</button>
                             </form>
+                            <div class="comments-section">
+                                {% for comment in comments %}
+                                <div class="comment-item">
+                                    <strong>{{ comment[1] }}</strong>: {{ comment[0] }}
+                                </div>
+                                {% endfor %}
+                            </div>
 
-                            <button type="button" class="share-btn" data-link="{{ url_for('view_post', post_id=post[0], _external=True) }}" onclick="copyLink(this.dataset.link)">🔗 Share</button>
+                            <button type="button" class="share-btn"
+                                data-link="{{ url_for('view_post', post_id=post[0], _external=True) }}"
+                                onclick="copyLink(this.dataset.link)">🔗 Share</button>
                         </div>
                         {% endfor %}
                     </div>
@@ -823,9 +853,9 @@
                         <a href="{{ url_for('dashboard', page=page-1, search=search) }}">Previous</a>
                         {% endif %}
                         <span>Page {{ page }} of {{ total_pages }}</span>
-                        {% if page < total_pages %}
-                        <a href="{{ url_for('dashboard', page=page+1, search=search) }}">Next</a>
-                        {% endif %}
+                        {% if page < total_pages %} <a href="{{ url_for('dashboard', page=page+1, search=search) }}">
+                            Next</a>
+                            {% endif %}
                     </div>
                 </div>
             </main>
@@ -834,7 +864,8 @@
                 <h2>Search Posts</h2>
                 <div class="search-container">
                     <form method="GET" action="/dashboard">
-                        <input type="text" name="search" placeholder="Search your posts..." value="{{ search }}" class="search-input">
+                        <input type="text" name="search" placeholder="Search your posts..." value="{{ search }}"
+                            class="search-input">
                         <button type="submit" class="btn btn-primary">Search</button>
                     </form>
                 </div>
