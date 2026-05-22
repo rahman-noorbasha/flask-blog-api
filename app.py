@@ -466,7 +466,68 @@ def view_post(post_id):
         return redirect(url_for("dashboard"))
 
     return render_template("view_post.html", post=post)
+@app.route("/feed")
+@login_required
+def feed():
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
 
+    cursor.execute("""
+        SELECT posts.*, users.username
+        FROM posts
+        JOIN users ON posts.user_id = users.id
+        ORDER BY posts.created_at DESC
+    """)
+
+    posts = cursor.fetchall()
+    conn.close()
+
+    return render_template("feed.html", posts=posts)
+@app.route("/user/<username>")
+@login_required
+def user_profile(username):
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM users WHERE username=?", (username,))
+    user = cursor.fetchone()
+
+    if not user:
+        conn.close()
+        flash("User not found", "error")
+        return redirect(url_for("feed"))
+
+    cursor.execute(
+        "SELECT COUNT(*) FROM posts WHERE user_id=?",
+        (user[0],)
+    )
+    total_posts = cursor.fetchone()[0]
+
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM likes
+        WHERE post_id IN (
+            SELECT id FROM posts WHERE user_id=?
+        )
+    """, (user[0],))
+    total_likes = cursor.fetchone()[0]
+
+    cursor.execute("""
+        SELECT * FROM posts
+        WHERE user_id=?
+        ORDER BY created_at DESC
+    """, (user[0],))
+    posts = cursor.fetchall()
+
+    conn.close()
+
+    return render_template(
+        "profile.html",
+        user=user,
+        total_posts=total_posts,
+        total_likes=total_likes,
+        posts=posts
+    )
 
 if __name__ == "__main__":
     app.run(debug=True)

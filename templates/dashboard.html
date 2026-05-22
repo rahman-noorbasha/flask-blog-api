@@ -161,7 +161,7 @@
 
         .dashboard-header {
             display: grid;
-            grid-template-columns: 1.4fr 0.6fr;
+            grid-template-columns: 1fr;
             gap: 24px;
             align-items: stretch;
             margin-bottom: 34px;
@@ -196,39 +196,19 @@
             flex-wrap: wrap;
         }
 
-        .summary-panel {
-            display: grid;
-            gap: 18px;
+        .hero-search {
+            margin-top: 28px;
         }
 
-        .summary-card {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 18px;
-            padding: 24px;
-            border: 1px solid rgba(255, 255, 255, 0.7);
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08);
-        }
-
-        .summary-card span {
-            display: block;
-            color: #777;
-            font-weight: 600;
-            margin-bottom: 10px;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            font-size: 12px;
-        }
-
-        .summary-card strong {
-            font-size: 32px;
+        .hero-search h2 {
+            margin-bottom: 18px;
+            font-size: 20px;
             color: #333;
-            display: block;
-            line-height: 1.1;
         }
 
         .dashboard-grid {
             display: grid;
-            grid-template-columns: 1.4fr 0.6fr;
+            grid-template-columns: 1fr;
             gap: 30px;
         }
 
@@ -277,22 +257,6 @@
             transform: translateY(-2px);
             background: white;
             box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
-        }
-
-        .search-panel {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            border-radius: 24px;
-            padding: 30px;
-            border: 1px solid rgba(255, 255, 255, 0.75);
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08);
-            margin-bottom: 0;
-        }
-
-        .search-panel h2 {
-            font-size: 20px;
-            margin-bottom: 20px;
-            color: #333;
         }
 
         .search-container form {
@@ -696,7 +660,6 @@
                 align-items: stretch;
             }
 
-            .search-panel,
             .hero-panel {
                 padding: 24px;
             }
@@ -755,22 +718,18 @@
                     your blog workflow streamlined.</p>
                 <div class="action-buttons">
                     <a href="/create" class="btn btn-primary">Create New Post</a>
+                    <a href="{{ url_for('feed') }}" class="btn btn-primary">Public Feed</a>
                     <a href="/dashboard" class="btn btn-secondary">Refresh</a>
                 </div>
-            </section>
-
-            <section class="summary-panel">
-                <div class="summary-card">
-                    <span>Total Posts</span>
-                    <strong>{{ total_posts }}</strong>
-                </div>
-                <div class="summary-card">
-                    <span>Total Likes</span>
-                    <strong>{{ total_likes }}</strong>
-                </div>
-                <div class="summary-card">
-                    <span>Total Comments</span>
-                    <strong>{{ total_comments }}</strong>
+                <div class="hero-search">
+                    <h2>Search Posts</h2>
+                    <div class="search-container">
+                        <form method="GET" action="/dashboard">
+                            <input type="text" name="search" placeholder="Search your posts..." value="{{ search }}"
+                                class="search-input">
+                            <button type="submit" class="btn btn-primary">Search</button>
+                        </form>
+                    </div>
                 </div>
             </section>
         </div>
@@ -860,16 +819,6 @@
                 </div>
             </main>
 
-            <aside class="search-panel">
-                <h2>Search Posts</h2>
-                <div class="search-container">
-                    <form method="GET" action="/dashboard">
-                        <input type="text" name="search" placeholder="Search your posts..." value="{{ search }}"
-                            class="search-input">
-                        <button type="submit" class="btn btn-primary">Search</button>
-                    </form>
-                </div>
-            </aside>
         </div>
     </div>
 
