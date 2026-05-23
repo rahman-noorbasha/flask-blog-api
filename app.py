@@ -26,7 +26,8 @@ def init_db():
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE,
-        password TEXT
+        password TEXT,
+        profile_pic TEXT
     )
     """)
 
@@ -58,24 +59,91 @@ def init_db():
     edited_at TIMESTAMP DEFAULT NULL
 )
 """)
+    cursor.execute("""
+CREATE TABLE IF NOT EXISTS bookmarks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    post_id INTEGER
+)
+""")
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS followers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    follower_id INTEGER,
+    following_id INTEGER
+)
+""")
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    actor_id INTEGER,
+    type TEXT,
+    post_id INTEGER,
+    message TEXT,
+    is_read INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+""")
 
     cursor.execute("PRAGMA table_info(comments)")
     comment_columns = [column[1] for column in cursor.fetchall()]
     if "edited_at" not in comment_columns:
         cursor.execute("ALTER TABLE comments ADD COLUMN edited_at TIMESTAMP DEFAULT NULL")
 
+    cursor.execute("PRAGMA table_info(users)")
+    user_columns = [column[1] for column in cursor.fetchall()]
+    if "profile_pic" not in user_columns:
+        cursor.execute("ALTER TABLE users ADD COLUMN profile_pic TEXT")
+
     conn.commit()
     conn.close()
 
 
 init_db()
+def create_notification(user_id, actor_id, notification_type, post_id, message):
+    if user_id == actor_id:
+        return
 
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        INSERT INTO notifications (user_id, actor_id, type, post_id, message)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (user_id, actor_id, notification_type, post_id, message)
+    )
+
+    conn.commit()
+    conn.close()
+
+@app.context_processor
+def inject_notification_count():
+    if current_user.is_authenticated:
+        conn = sqlite3.connect("users.db")
+        cursor = conn.cursor()
+
+        cursor.execute(
+            "SELECT COUNT(*) FROM notifications WHERE user_id=? AND is_read=0",
+            (current_user.id,)
+        )
+
+        unread_notifications = cursor.fetchone()[0]
+
+        conn.close()
+
+        return dict(unread_notifications=unread_notifications)
+
+    return dict(unread_notifications=0)
 
 # ---------------- USER CLASS ----------------
 class User(UserMixin):
-    def __init__(self, id, username):
+    def __init__(self, id, username, profile_pic=None):
         self.id = id
         self.username = username
+        self.profile_pic = profile_pic
 
 
 @login_manager.user_loader
@@ -88,12 +156,12 @@ def load_user(user_id):
         conn.close()
         return None
 
-    cursor.execute("SELECT * FROM users WHERE id=?", (uid,))
+    cursor.execute("SELECT id, username, password, profile_pic FROM users WHERE id=?", (uid,))
     user = cursor.fetchone()
     conn.close()
 
     if user:
-        return User(user[0], user[1])
+        return User(user[0], user[1], user[3])
     return None
 
 
@@ -127,7 +195,6 @@ def register():
 
     return render_template("register.html")
 
-
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -138,7 +205,7 @@ def login():
         cursor = conn.cursor()
 
         cursor.execute(
-            "SELECT * FROM users WHERE username=?",
+            "SELECT id, username, password, profile_pic FROM users WHERE username=?",
             (username,)
         )
 
@@ -164,7 +231,7 @@ def login():
 
             if valid_password:
                 conn.close()
-                login_user(User(user[0], user[1]))
+                login_user(User(user[0], user[1], user[3]))
                 return redirect(url_for("dashboard"))
 
         conn.close()
@@ -293,7 +360,7 @@ def dashboard():
             (post[0],)
         )
         raw_comments = cursor.fetchall()
-
+        
         # convert post tuple and comments to dicts for easier template use
         post_dict = {
             "id": post[0],
@@ -301,7 +368,8 @@ def dashboard():
             "content": post[2],
             "user_id": post[3],
             "created_at": post[4],
-            "attachment": post[5]
+            "attachment": post[5],
+            "is_image_attachment": bool(post[5]) and post[5].lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".webp"))
         }
 
         comments = []
@@ -313,8 +381,12 @@ def dashboard():
                 "username": c[3],
                 "edited_at": c[4]
             })
-
-        post_data.append((post_dict, like_count, comment_count, comments))
+        cursor.execute(
+        "SELECT * FROM bookmarks WHERE user_id=? AND post_id=?",
+        (current_user.id, post_dict["id"])
+)
+        is_bookmarked = cursor.fetchone() is not None
+        post_data.append((post_dict, like_count, comment_count, comments, is_bookmarked))
     conn.close()
 
     return render_template(
@@ -478,6 +550,27 @@ def like_post(post_id):
         "SELECT * FROM likes WHERE user_id=? AND post_id=?",
         (current_user.id, post_id)
     )
+    cursor.execute(
+    "SELECT user_id FROM posts WHERE id=?",
+    (post_id,)
+)
+
+    post_owner = cursor.fetchone()[0]
+
+    if post_owner != current_user.id:
+        cursor.execute(
+        """
+        INSERT INTO notifications (user_id, actor_id, type, post_id, message)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (
+            post_owner,
+            current_user.id,
+            "like",
+            post_id,
+            f"{current_user.username} liked your post"
+        )
+    )
 
     existing_like = cursor.fetchone()
 
@@ -522,6 +615,27 @@ def comment_post(post_id):
             (content, current_user.id, post_id)
         )
         comment_id = cursor.lastrowid
+        cursor.execute(
+    "SELECT user_id FROM posts WHERE id=?",
+    (post_id,)
+)
+
+        post_owner = cursor.fetchone()[0]
+
+        if post_owner != current_user.id:
+                cursor.execute(
+        """
+        INSERT INTO notifications (user_id, actor_id, type, post_id, message)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (
+            post_owner,
+            current_user.id,
+            "comment",
+            post_id,
+            f"{current_user.username} commented on your post"
+        )
+    )
 
         conn.commit()
         cursor.execute(
@@ -568,7 +682,7 @@ def feed():
         JOIN users ON posts.user_id = users.id
         ORDER BY posts.created_at DESC
     """)
-
+    
     raw_posts = cursor.fetchall()
     posts = []
     for p in raw_posts:
@@ -599,6 +713,11 @@ def feed():
                 "username": c[3],
                 "edited_at": c[4]
             })
+        cursor.execute(
+        "SELECT * FROM bookmarks WHERE user_id=? AND post_id=?",
+        (current_user.id, post_id,)
+)
+        is_bookmarked = cursor.fetchone() is not None
 
         posts.append({
             "id": p[0],
@@ -607,15 +726,94 @@ def feed():
             "user_id": p[3],
             "created_at": p[4],
             "attachment": p[5],
+            "is_image_attachment": bool(p[5]) and p[5].lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".webp")),
             "username": p[6],
             "like_count": like_count,
             "comment_count": comment_count,
-            "comments": comments
+            "comments": comments,
+            "is_bookmarked": is_bookmarked
         })
 
     conn.close()
 
-    return render_template("feed.html", posts=posts)
+    return render_template(
+        "feed.html",
+        posts=posts,
+        page_title="Public Feed",
+        subtitle="Browse the latest public posts in a clean, friendly feed designed for easy reading.",
+        empty_message="No public posts are available yet. Create a new post from your dashboard and check back soon.",
+        show_saved_link=True
+    )
+
+@app.route("/saved")
+@login_required
+def saved_posts():
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT posts.id, posts.title, posts.content, posts.user_id, posts.created_at, posts.attachment, users.username
+        FROM bookmarks
+        JOIN posts ON bookmarks.post_id = posts.id
+        JOIN users ON posts.user_id = users.id
+        WHERE bookmarks.user_id = ?
+        ORDER BY bookmarks.id DESC
+    """, (current_user.id,))
+
+    raw_posts = cursor.fetchall()
+    posts = []
+    for p in raw_posts:
+        post_id = p[0]
+        cursor.execute("SELECT COUNT(*) FROM likes WHERE post_id=?", (post_id,))
+        like_count = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM comments WHERE post_id=?", (post_id,))
+        comment_count = cursor.fetchone()[0]
+
+        cursor.execute(
+            """
+            SELECT comments.id, comments.content, comments.user_id, users.username, comments.edited_at
+            FROM comments
+            JOIN users ON comments.user_id = users.id
+            WHERE comments.post_id=?
+            ORDER BY comments.created_at DESC
+            """,
+            (post_id,)
+        )
+        raw_comments = cursor.fetchall()
+        comments = []
+        for c in raw_comments:
+            comments.append({
+                "id": c[0],
+                "content": c[1],
+                "user_id": c[2],
+                "username": c[3],
+                "edited_at": c[4]
+            })
+
+        posts.append({
+            "id": p[0],
+            "title": p[1],
+            "content": p[2],
+            "user_id": p[3],
+            "created_at": p[4],
+            "attachment": p[5],
+            "is_image_attachment": bool(p[5]) and p[5].lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".webp")),
+            "username": p[6],
+            "like_count": like_count,
+            "comment_count": comment_count,
+            "comments": comments,
+            "is_bookmarked": True
+        })
+
+    conn.close()
+
+    return render_template(
+        "feed.html",
+        posts=posts,
+        page_title="Saved Posts",
+        subtitle="All the posts you saved are collected here for quick reading.",
+        empty_message="You have not saved any posts yet. Browse the public feed and tap Save on posts you want to keep.",
+        show_saved_link=False
+    )
 @app.route("/user/<username>")
 @login_required
 def user_profile(username):
@@ -644,14 +842,77 @@ def user_profile(username):
         )
     """, (user[0],))
     total_likes = cursor.fetchone()[0]
+    cursor.execute(
+    "SELECT COUNT(*) FROM followers WHERE following_id=?",
+    (user[0],)
+)
+    followers_count = cursor.fetchone()[0]
+
+    cursor.execute(
+    "SELECT COUNT(*) FROM followers WHERE follower_id=?",
+    (user[0],)
+)
+    following_count = cursor.fetchone()[0]
+
+    cursor.execute(
+    "SELECT * FROM followers WHERE follower_id=? AND following_id=?",
+    (current_user.id, user[0])
+)
+    is_following = cursor.fetchone() is not None
 
     cursor.execute("""
         SELECT * FROM posts
         WHERE user_id=?
         ORDER BY created_at DESC
     """, (user[0],))
-    posts = cursor.fetchall()
+    raw_posts = cursor.fetchall()
+    posts = []
 
+    for post in raw_posts:
+        post_id = post[0]
+        cursor.execute("SELECT COUNT(*) FROM likes WHERE post_id=?", (post_id,))
+        like_count = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM comments WHERE post_id=?", (post_id,))
+        comment_count = cursor.fetchone()[0]
+        cursor.execute(
+            """
+            SELECT comments.id, comments.content, comments.user_id, users.username, comments.edited_at
+            FROM comments
+            JOIN users ON comments.user_id = users.id
+            WHERE comments.post_id=?
+            ORDER BY comments.created_at DESC
+            """,
+            (post_id,)
+        )
+        raw_comments = cursor.fetchall()
+        comments = []
+        for comment in raw_comments:
+            comments.append({
+                "id": comment[0],
+                "content": comment[1],
+                "user_id": comment[2],
+                "username": comment[3],
+                "edited_at": comment[4]
+            })
+
+        cursor.execute(
+            "SELECT * FROM bookmarks WHERE user_id=? AND post_id=?",
+            (current_user.id, post_id)
+        )
+
+        posts.append({
+            "id": post[0],
+            "title": post[1],
+            "content": post[2],
+            "user_id": post[3],
+            "created_at": post[4],
+            "attachment": post[5],
+            "is_image_attachment": bool(post[5]) and post[5].lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".webp")),
+            "like_count": like_count,
+            "comment_count": comment_count,
+            "comments": comments,
+            "is_bookmarked": cursor.fetchone() is not None
+        })
     conn.close()
 
     return render_template(
@@ -659,7 +920,10 @@ def user_profile(username):
         user=user,
         total_posts=total_posts,
         total_likes=total_likes,
-        posts=posts
+        posts=posts,
+        followers_count=followers_count,
+        following_count=following_count,
+        is_following=is_following
     )
 @app.route("/comment/edit/<int:comment_id>", methods=["POST"])
 @login_required
@@ -739,6 +1003,169 @@ def delete_comment(comment_id):
 
     conn.close()
     return jsonify({"success": False})
+@app.route("/bookmark/<int:post_id>", methods=["POST"])
+@login_required
+def bookmark_post(post_id):
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "SELECT * FROM bookmarks WHERE user_id=? AND post_id=?",
+        (current_user.id, post_id)
+    )
+
+    existing_bookmark = cursor.fetchone()
+
+    if existing_bookmark:
+        cursor.execute(
+            "DELETE FROM bookmarks WHERE user_id=? AND post_id=?",
+            (current_user.id, post_id)
+        )
+        bookmarked = False
+    else:
+        cursor.execute(
+            "INSERT INTO bookmarks (user_id, post_id) VALUES (?, ?)",
+            (current_user.id, post_id)
+        )
+        bookmarked = True
+
+    conn.commit()
+    conn.close()
+
+    return {
+        "success": True,
+        "bookmarked": bookmarked
+    }
+@app.route("/upload-profile-pic", methods=["POST"])
+@login_required
+def upload_profile_pic():
+    file = request.files.get("profile_pic")
+
+    if file and file.filename:
+        filename = secure_filename(file.filename)
+        file.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
+
+        conn = sqlite3.connect("users.db")
+        cursor = conn.cursor()
+
+        cursor.execute(
+            "UPDATE users SET profile_pic=? WHERE id=?",
+            (filename, current_user.id)
+        )
+
+        conn.commit()
+        conn.close()
+
+        flash("Profile picture updated successfully.", "success")
+
+    return redirect(url_for("user_profile", username=current_user.username))
+
+@app.route("/follow/<int:user_id>", methods=["POST"])
+@login_required
+def follow_user(user_id):
+    if user_id == current_user.id:
+        return {"success": False, "message": "You cannot follow yourself"}
+
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "SELECT * FROM followers WHERE follower_id=? AND following_id=?",
+        (current_user.id, user_id)
+    )
+
+    existing_follow = cursor.fetchone()
+
+    if existing_follow:
+        cursor.execute(
+            "DELETE FROM followers WHERE follower_id=? AND following_id=?",
+            (current_user.id, user_id)
+        )
+        following = False
+    else:
+        cursor.execute(
+            "INSERT INTO followers (follower_id, following_id) VALUES (?, ?)",
+            (current_user.id, user_id)
+        )
+        following = True
+
+        cursor.execute(
+    """
+    INSERT INTO notifications (user_id, actor_id, type, post_id, message)
+    VALUES (?, ?, ?, ?, ?)
+    """,
+    (
+        user_id,
+        current_user.id,
+        "follow",
+        None,
+        f"{current_user.username} started following you"
+    )
+)
+
+    conn.commit()
+
+    cursor.execute(
+        "SELECT COUNT(*) FROM followers WHERE following_id=?",
+        (user_id,)
+    )
+    followers_count = cursor.fetchone()[0]
+
+    conn.close()
+
+    return {
+        "success": True,
+        "following": following,
+        "followers_count": followers_count
+    }
+@app.route("/notifications")
+@login_required
+def notifications():
+    conn = sqlite3.connect("users.db")
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT
+            notifications.id,
+            notifications.message,
+            notifications.created_at,
+            users.username AS actor_username
+        FROM notifications
+        JOIN users ON notifications.actor_id = users.id
+        WHERE notifications.user_id=?
+        ORDER BY notifications.created_at DESC
+        """,
+        (current_user.id,)
+    )
+
+    notifications = cursor.fetchall()
+
+    cursor.execute(
+    "UPDATE notifications SET is_read=1 WHERE user_id=?",
+    (current_user.id,)
+)
+    conn.commit()
+    conn.close()
+
+    return render_template("notifications.html", notifications=notifications)
+
+@app.route("/delete-notification/<int:notification_id>", methods=["POST"])
+@login_required
+def delete_notification(notification_id):
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "DELETE FROM notifications WHERE id=? AND user_id=?",
+        (notification_id, current_user.id)
+    )
+
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("notifications"))
 
 if __name__ == "__main__":
     app.run(debug=True)

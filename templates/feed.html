@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Public Feed</title>
+    <title>{{ page_title }}</title>
     <style>
         * {
             margin: 0;
@@ -83,6 +83,13 @@
             box-shadow: 0 22px 48px rgba(15, 23, 42, 0.16);
         }
 
+        .header-actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
         .posts-grid {
             display: grid;
             gap: 22px;
@@ -114,6 +121,30 @@
             margin-bottom: 1.25rem;
             max-height: 8.5rem;
             overflow: hidden;
+        }
+
+        .attachment-box {
+            margin-bottom: 1.25rem;
+        }
+
+        .attachment-image {
+            display: block;
+            width: 100%;
+            max-height: 420px;
+            object-fit: cover;
+            border-radius: 18px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .attachment-link {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            border-radius: 9999px;
+            background: #f8fafc;
+            border: 1px solid #dbeafe;
+            color: #3730a3;
+            font-weight: 700;
         }
 
         .post-meta {
@@ -193,7 +224,7 @@
         }
 
         .comment-actions {
-            display: none;
+            display: flex;
             gap: 6px;
             flex-shrink: 0;
         }
@@ -288,6 +319,7 @@
                 padding: 24px 16px 28px;
             }
 
+            .header-actions,
             .back-link {
                 width: 100%;
                 justify-content: center;
@@ -298,17 +330,24 @@
             }
         }
     </style>
+    {% include "_theme.html" %}
 </head>
 
 <body>
     <div class="page-shell">
         <header class="page-header">
             <div>
-                <h1 class="page-title">Public Feed</h1>
-                <p class="subtitle">Browse the latest public posts in a clean, friendly feed designed for easy reading.
-                </p>
+                <h1 class="page-title">{{ page_title }}</h1>
+                <p class="subtitle">{{ subtitle }}</p>
             </div>
-            <a href="{{ url_for('dashboard') }}" class="back-link">← Back to Dashboard</a>
+            <div class="header-actions">
+                {% if show_saved_link %}
+                <a href="{{ url_for('saved_posts') }}" class="back-link">Saved Posts</a>
+                {% else %}
+                <a href="{{ url_for('feed') }}" class="back-link">Public Feed</a>
+                {% endif %}
+                <a href="{{ url_for('dashboard') }}" class="back-link">← Back to Dashboard</a>
+            </div>
         </header>
 
         {% if posts %}
@@ -317,6 +356,19 @@
             <article class="post-card">
                 <h2 class="post-title">{{ post.title }}</h2>
                 <p class="post-description">{{ post.content }}</p>
+                {% if post.attachment %}
+                <div class="attachment-box">
+                    {% if post.is_image_attachment %}
+                    <a href="{{ url_for('static', filename='uploads/' + post.attachment) }}" target="_blank">
+                        <img class="attachment-image" src="{{ url_for('static', filename='uploads/' + post.attachment) }}"
+                            alt="Attachment for {{ post.title }}">
+                    </a>
+                    {% else %}
+                    <a class="attachment-link" href="{{ url_for('static', filename='uploads/' + post.attachment) }}"
+                        target="_blank">Open Attachment</a>
+                    {% endif %}
+                </div>
+                {% endif %}
                 <div class="post-meta">
                     Posted by
                     <a href="{{ url_for('user_profile', username=post.username) }}">
@@ -328,14 +380,21 @@
                     <button class="action-btn" type="button" onclick="likePost({{ post.id }})">
                         ❤️ <span id="like-count-{{ post.id }}">{{ post.like_count }}</span>
                     </button>
-                    <button class="action-btn" type="button"
-                        onclick="focusComment({{ post.id }})">
+                    <button class="action-btn" type="button" onclick="focusComment({{ post.id }})">
                         Comment <span id="comment-count-{{ post.id }}">{{ post.comment_count }}</span>
                     </button>
                     <button class="action-btn" type="button"
                         data-link="{{ url_for('view_post', post_id=post.id, _external=True) }}"
                         onclick="sharePost(this.dataset.link)">
                         Share
+                    </button>
+                    <button type="button" class="bookmark-btn" data-post-id="{{ post.id }}" onclick="bookmarkPost(this)"
+                        id="bookmark-btn-{{ post.id }}">
+                        {% if post.is_bookmarked %}
+                        ✅ Saved
+                        {% else %}
+                        🔖 Save
+                        {% endif %}
                     </button>
                 </div>
                 <section class="comments-section">
@@ -375,7 +434,7 @@
         </div>
         {% else %}
         <div class="empty-state">
-            <p>No public posts are available yet. Create a new post from your dashboard and check back soon.</p>
+            <p>{{ empty_message }}</p>
         </div>
         {% endif %}
     </div>
@@ -447,7 +506,7 @@
             }
         }
 
-        document.addEventListener("click", function(event) {
+        document.addEventListener("click", function (event) {
             const commentBox = event.target.closest(".comment-box");
 
             if (!commentBox) {
@@ -527,6 +586,29 @@
             alert("Post link copied!");
         }
     </script>
+    <script>
+        async function bookmarkPost(button) {
+            const postId = button.dataset.postId;
+
+            console.log("Bookmark post id:", postId);
+
+            if (!postId) {
+                alert("Post ID missing");
+                return;
+            }
+
+            const response = await fetch(`/bookmark/${postId}`, {
+                method: "POST"
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                button.innerText = data.bookmarked ? "✅ Saved" : "🔖 Save";
+            }
+        }
+    </script>
+
 </body>
 
 </html>

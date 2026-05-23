@@ -126,6 +126,15 @@
             box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
         }
 
+        .user-avatar-img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid white;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
         .user-name {
             font-weight: 600;
             color: #333;
@@ -438,6 +447,26 @@
             font-weight: 600;
         }
 
+        .attachment-image {
+            display: block;
+            width: 100%;
+            max-height: 260px;
+            object-fit: cover;
+            border-radius: 16px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .attachment-link {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            border-radius: 9999px;
+            background: #f8fafc;
+            border: 1px solid #dbeafe;
+            color: #3730a3;
+            font-weight: 700;
+        }
+
         .post-meta {
             display: flex;
             flex-wrap: wrap;
@@ -469,7 +498,8 @@
         .edit-btn,
         .delete-btn,
         .like-btn,
-        .share-btn {
+        .share-btn,
+        .bookmark-btn {
             width: 100%;
             padding: 12px 16px;
             border: none;
@@ -508,6 +538,13 @@
             background: #ffffff;
             color: #333;
             border: 1px solid #d6d6d6;
+            margin-top: 10px;
+        }
+
+        .bookmark-btn {
+            background: #fff7ed;
+            color: #9a3412;
+            border: 1px solid #fed7aa;
             margin-top: 10px;
         }
 
@@ -674,80 +711,209 @@
                 padding: 24px;
             }
         }
+
         .comments-section {
-    margin-top: 15px;
-}
+            margin-top: 15px;
+        }
 
-.comment-box {
-    position: relative;
-    margin-bottom: 12px;
-}
+        .comment-box {
+            position: relative;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
 
-.comment-text {
-    display: inline-block;
-    background: #f1f1f1;
-    padding: 10px;
-    border-radius: 10px;
-    cursor: pointer;
-    max-width: 300px;
-}
+        .comment-text {
+            display: block;
+            flex: 1;
+            background: #f1f1f1;
+            padding: 10px;
+            border-radius: 10px;
+            max-width: 100%;
+            margin: 0;
+        }
 
-.comment-edited {
-    font-size: 0.85em;
-    color: #777;
-}
+        .comment-edited {
+            color: #777;
+            font-size: 0.85em;
+        }
 
-.comment-menu {
-    display: none;
-    position: absolute;
-    top: 45px;
-    left: 0;
-    background: white;
-    border-radius: 8px;
-    overflow: hidden;
-    border: 1px solid #ddd;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    z-index: 100;
-    min-width: 120px;
-}
+        .comment-action-btn {
+            background: #fff;
+            color: #4b5563;
+            border: none;
+            border-radius: 9999px;
+            cursor: pointer;
+            font-size: 0.78rem;
+            font-weight: 700;
+            padding: 0.35rem 0.6rem;
+        }
 
-.comment-menu div {
-    padding: 10px;
-    cursor: pointer;
-}
+        .comment-action-btn:hover {
+            background: #eef2ff;
+            color: #3730a3;
+        }
 
-.comment-menu div:hover {
-    background: #f5f5f5;
-}
+        /* limit visible comments to ~5 items, allow scrolling for the rest */
+        .comments-list {
+            max-height: 320px;
+            /* adjustable: roughly 5 x 64px comment rows */
+            overflow-y: auto;
+            padding-right: 8px;
+            /* space for scrollbar */
+            display: block;
+            gap: 8px;
+        }
 
-.comment-options-btn {
-    background: transparent;
-    border: none;
-    font-size: 20px;
-    line-height: 1;
-    padding: 4px 8px;
-    cursor: pointer;
-    color: #666;
-    border-radius: 6px;
-}
+        .comments-list::-webkit-scrollbar {
+            width: 8px;
+        }
 
-.comment-options-btn:hover {
-    background: rgba(0,0,0,0.04);
-    color: #333;
-}
+        .comments-list::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.12);
+            border-radius: 6px;
+        }
 
-/* limit visible comments to ~5 items, allow scrolling for the rest */
-.comments-list {
-    max-height: 320px; /* adjustable: roughly 5 x 64px comment rows */
-    overflow-y: auto;
-    padding-right: 8px; /* space for scrollbar */
-    display: block;
-    gap: 8px;
-}
-.comments-list::-webkit-scrollbar { width: 8px; }
-.comments-list::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 6px; }
-.comments-list { -webkit-overflow-scrolling: touch; }
+        .comments-list {
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .notification-badge {
+            background: #dc3545;
+            color: white;
+            padding: 2px 7px;
+            border-radius: 999px;
+            font-size: 12px;
+            margin-left: 5px;
+            font-weight: bold;
+        }
+        body.dark-mode {
+            background: linear-gradient(135deg, #111827 0%, #312e81 100%);
+            color: #f9fafb;
+        }
+
+        body.dark-mode::before {
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+        }
+
+        body.dark-mode .navbar,
+        body.dark-mode .hero-panel,
+        body.dark-mode .post-card,
+        body.dark-mode .empty-state {
+            background: rgba(17, 24, 39, 0.96);
+            border-color: rgba(148, 163, 184, 0.24);
+            color: #f9fafb;
+        }
+
+        body.dark-mode .navbar {
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.32);
+        }
+
+        body.dark-mode .navbar-brand,
+        body.dark-mode .post-title {
+            background: none;
+            -webkit-text-fill-color: currentColor;
+            color: #f9fafb;
+        }
+
+        body.dark-mode .user-name,
+        body.dark-mode .user-name a,
+        body.dark-mode .hero-panel h1,
+        body.dark-mode .hero-search h2,
+        body.dark-mode .empty-title,
+        body.dark-mode .post-title {
+            color: #f9fafb;
+        }
+
+        body.dark-mode .post-content,
+        body.dark-mode .meta-item,
+        body.dark-mode .hero-panel p,
+        body.dark-mode .empty-text,
+        body.dark-mode .comment-edited,
+        body.dark-mode .pagination span {
+            color: #d1d5db;
+        }
+
+        body.dark-mode .user-info,
+        body.dark-mode .post-meta {
+            border-color: rgba(148, 163, 184, 0.28);
+        }
+
+        body.dark-mode .search-input,
+        body.dark-mode .comment-input {
+            background: #0f172a;
+            border-color: #334155;
+            color: #f9fafb;
+        }
+
+        body.dark-mode .search-input::placeholder,
+        body.dark-mode .comment-input::placeholder {
+            color: #94a3b8;
+        }
+
+        body.dark-mode .comment-text {
+            background: #1f2937;
+            color: #f9fafb;
+        }
+
+        body.dark-mode .comment-action-btn,
+        body.dark-mode .share-btn,
+        body.dark-mode .pagination a,
+        body.dark-mode .btn-secondary {
+            background: #0f172a;
+            border-color: #334155;
+            color: #e5e7eb;
+        }
+
+        body.dark-mode .attachment-link {
+            background: #0f172a;
+            border-color: #334155;
+            color: #c7d2fe;
+        }
+
+        body.dark-mode .bookmark-btn {
+            background: #292524;
+            border-color: #9a3412;
+            color: #fed7aa;
+        }
+
+        body.dark-mode .like-btn {
+            background: #172554;
+            border-color: #1d4ed8;
+            color: #dbeafe;
+        }
+
+        body.dark-mode .edit-btn {
+            background: #172554;
+            border-color: #2563eb;
+            color: #dbeafe;
+        }
+
+        body.dark-mode .delete-btn {
+            background: #450a0a;
+            border-color: #991b1b;
+            color: #fecaca;
+        }
+
+        .dark-mode-btn {
+            padding: 8px 14px;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            background: #111827;
+            color: white;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        body.dark-mode .dark-mode-btn {
+            background: #f9fafb;
+            color: #111827;
+            border-color: #e5e7eb;
+        }
     </style>
+    {% include "_theme.html" %}
 
 </head>
 
@@ -757,15 +923,39 @@
             <div class="navbar-brand">Flask Blog App</div>
             <div class="navbar-menu">
                 <div class="user-info">
-                    <div class="user-avatar">{{ current_user.username[0].upper() }}</div>
-                    <div class="user-name"><a href="{{ url_for('user_profile', username=current_user.username) }}">{{
-                            current_user.username }}</a></div>
+
+                    {% if current_user.profile_pic %}
+                    <img src="{{ url_for('static', filename='uploads/' + current_user.profile_pic) }}"
+                        class="user-avatar-img" alt="Profile Picture">
+                    {% else %}
+                    <div class="user-avatar">
+                        {{ current_user.username[0].upper() }}
+                    </div>
+                    {% endif %}
+
+                    <div class="user-name">
+                        <a href="{{ url_for('user_profile', username=current_user.username) }}">
+                            {{ current_user.username }}
+                        </a>
+                    </div>
+
                 </div>
+                <a href="{{ url_for('notifications') }}" class="logout-btn">
+                    🔔 Notifications
+                    {% if unread_notifications > 0 %}
+                    <span class="notification-badge">{{ unread_notifications }}</span>
+                    {% endif %}
+                </a>
+                <a href="{{ url_for('saved_posts') }}" class="logout-btn">Saved Posts</a>
                 <a href="/logout" class="logout-btn">Logout</a>
                 <form method="POST" action="{{ url_for('delete_account') }}"
                     onsubmit="return confirm('Are you sure? This will permanently delete your account and all posts.');">
                     <button type="submit" class="delete-account-btn">Delete Account</button>
                 </form>
+                <button type="button" onclick="toggleDarkMode()" class="dark-mode-btn" id="dark-mode-toggle"
+                    aria-pressed="false">
+                    🌙 Dark Mode
+                </button>
             </div>
         </div>
     </nav>
@@ -791,6 +981,7 @@
                 <div class="action-buttons">
                     <a href="/create" class="btn btn-primary">Create New Post</a>
                     <a href="{{ url_for('feed') }}" class="btn btn-primary">Public Feed</a>
+                    <a href="{{ url_for('saved_posts') }}" class="btn btn-primary">Saved Posts</a>
                     <a href="/dashboard" class="btn btn-secondary">Refresh</a>
                 </div>
                 <div class="hero-search">
@@ -813,7 +1004,7 @@
 
                     {% if posts %}
                     <div class="posts-grid">
-                        {% for post, like_count, comment_count, comments in posts %}
+                        {% for post, like_count, comment_count, comments, is_bookmarked in posts %}
                         <div class="post-card">
                             <div class="post-header">
                                 <h3 class="post-title">{{ post.title }}</h3>
@@ -826,8 +1017,18 @@
 
                             {% if post.attachment %}
                             <div class="attachment-box">
-                                <a href="{{ url_for('static', filename='uploads/' + post.attachment) }}" target="_blank">📎 Open
-                                    Attachment</a>
+                                {% if post.is_image_attachment %}
+                                <a href="{{ url_for('static', filename='uploads/' + post.attachment) }}"
+                                    target="_blank">
+                                    <img class="attachment-image"
+                                        src="{{ url_for('static', filename='uploads/' + post.attachment) }}"
+                                        alt="Attachment for {{ post.title }}">
+                                </a>
+                                {% else %}
+                                <a class="attachment-link"
+                                    href="{{ url_for('static', filename='uploads/' + post.attachment) }}"
+                                    target="_blank">Open Attachment</a>
+                                {% endif %}
                             </div>
                             {% endif %}
 
@@ -863,39 +1064,36 @@
                                     {% for comment in comments %}
 
                                     <div class="comment-box" id="comment-{{ comment.id }}">
-
-                                        <div style="display:flex; align-items:flex-start; gap:8px;">
-                                            <p class="comment-text">
-                                                <strong>{{ comment.username }}</strong>{% if comment.edited_at %} <span class="comment-edited">(edited)</span>{% endif %}<br>
-                                                <span class="comment-content">{{ comment.content }}</span>
-                                            </p>
-
-                                            <button class="comment-options-btn" aria-label="Options">⋯</button>
-                                        </div>
-
-                                        <div class="comment-menu" id="menu-{{ comment.id }}">
-
-                                            {% if current_user.id == comment.user_id %}
-                                            <div data-action="edit" data-comment="{{ comment.id }}">Edit</div>
+                                        <p class="comment-text">
+                                            <strong>{{ comment.username }}</strong>
+                                            {% if comment.edited_at %}
+                                            <span class="comment-edited">(edited)</span>
                                             {% endif %}
+                                            <br>
+                                            <span class="comment-content">{{ comment.content }}</span>
+                                        </p>
 
-                                            {% if current_user.id == comment.user_id or current_user.id == post.user_id %}
-                                            <div data-action="delete" data-comment="{{ comment.id }}" data-post="{{ post.id }}">Delete</div>
-                                            {% endif %}
+                                        {% if current_user.id == comment.user_id %}
+                                        <button class="comment-action-btn" type="button"
+                                            onclick="editComment({{ comment.id }})">Edit</button>
+                                        {% endif %}
 
-                                        </div>
-
+                                        {% if current_user.id == comment.user_id or current_user.id == post.user_id
+                                        %}
+                                        <button class="comment-action-btn" type="button"
+                                            onclick="deleteComment({{ comment.id }}, {{ post.id }})">Delete</button>
+                                        {% endif %}
                                     </div>
 
                                     {% endfor %}
 
                                 </div>
 
-                                <form onsubmit="addComment(event, {{ post.id }})">
-                                    <input type="text" id="comment-input-{{ post.id }}" placeholder="Write a comment..."
-                                        required>
+                                <form class="comment-form" onsubmit="addComment(event, {{ post.id }})">
+                                    <input class="comment-input" type="text" id="comment-input-{{ post.id }}"
+                                        placeholder="Write a comment..." required>
 
-                                    <button type="submit">Post</button>
+                                    <button class="comment-submit" type="submit">Post</button>
                                 </form>
 
                             </div>
@@ -903,6 +1101,14 @@
                             <button type="button" class="share-btn"
                                 data-link="{{ url_for('view_post', post_id=post.id, _external=True) }}"
                                 onclick="copyLink(this.dataset.link)">🔗 Share</button>
+                            <button type="button" class="bookmark-btn" data-post-id="{{ post.id }}"
+                                onclick="bookmarkPost(this)" id="bookmark-btn-{{ post.id }}">
+                                {% if is_bookmarked %}
+                                ✅ Saved
+                                {% else %}
+                                🔖 Save
+                                {% endif %}
+                            </button>
                         </div>
                         {% endfor %}
                     </div>
@@ -952,131 +1158,112 @@
             }
         }
     </script>
-   <script>
-function toggleMenu(commentId) {
-    document.querySelectorAll(".comment-menu").forEach(menu => {
-        if (menu.id !== `menu-${commentId}`) {
-            menu.style.display = "none";
-        }
-    });
+    <script>
+        async function editComment(commentId) {
+            const commentDiv = document.getElementById(`comment-${commentId}`);
+            const commentContent = commentDiv.querySelector(".comment-content");
 
-    const menu = document.getElementById(`menu-${commentId}`);
-    menu.style.display = menu.style.display === "block" ? "none" : "block";
-}
+            const oldComment = commentContent.innerText;
+            const newComment = prompt("Edit comment:", oldComment);
 
-document.addEventListener("click", function(e) {
-    const opt = e.target.closest(".comment-options-btn");
-    if (opt) {
-        e.stopPropagation();
-        const box = opt.closest(".comment-box");
-        if (!box) return;
-        const cid = box.id.replace("comment-", "");
-        toggleMenu(cid);
-        return;
-    }
+            if (!newComment || newComment.trim() === "") {
+                return;
+            }
 
-    // delegated handler for edit/delete actions inside comment menus
-    const actionEl = e.target.closest(".comment-menu [data-action]");
-    if (actionEl) {
-        e.stopPropagation();
-        const action = actionEl.dataset.action;
-        const commentId = actionEl.dataset.comment;
-        const postId = actionEl.dataset.post;
-        if (action === "edit") editComment(commentId);
-        else if (action === "delete") deleteComment(commentId, postId);
-        return;
-    }
+            try {
+                const response = await fetch(`/comment/edit/${commentId}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: `comment=${encodeURIComponent(newComment)}`
+                });
 
-    // close all menus on any other click (including post area or comment text)
-    if (!e.target.closest(".comment-box")) {
-        document.querySelectorAll(".comment-menu").forEach(menu => menu.style.display = "none");
-    } else if (!e.target.closest(".comment-menu")) {
-        // clicked inside comment-box but outside menu: close all menus
-        document.querySelectorAll(".comment-menu").forEach(menu => menu.style.display = "none");
-    }
-});
+                if (!response.ok) throw new Error(response.statusText || "Request failed");
+                const data = await response.json();
+                if (data.success) {
+                    commentContent.innerText = data.comment;
 
-async function editComment(commentId) {
-    const commentDiv = document.getElementById(`comment-${commentId}`);
-    const commentContent = commentDiv.querySelector(".comment-content");
-
-    const oldComment = commentContent.innerText;
-    const newComment = prompt("Edit comment:", oldComment);
-
-    if (!newComment || newComment.trim() === "") {
-        return;
-    }
-
-    try {
-        const response = await fetch(`/comment/edit/${commentId}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: `comment=${encodeURIComponent(newComment)}`
-        });
-
-        if (!response.ok) throw new Error(response.statusText || "Request failed");
-        const data = await response.json();
-        if (data.success) {
-            commentContent.innerText = data.comment;
-
-            if (data.edited && !commentDiv.querySelector(".comment-edited")) {
-                const editedBadge = document.createElement("span");
-                editedBadge.className = "comment-edited";
-                editedBadge.innerText = " (edited)";
-                commentDiv.querySelector(".comment-text strong").after(editedBadge);
+                    if (data.edited && !commentDiv.querySelector(".comment-edited")) {
+                        const editedBadge = document.createElement("span");
+                        editedBadge.className = "comment-edited";
+                        editedBadge.innerText = " (edited)";
+                        commentDiv.querySelector(".comment-text strong").after(editedBadge);
+                    }
+                } else {
+                    alert(data.message || "Failed to edit");
+                }
+            } catch (err) {
+                alert("Error: " + err.message);
             }
         }
-        else alert(data.message || "Failed to edit");
-    } catch (err) {
-        alert("Error: " + err.message);
-    }
-}
 
-async function deleteComment(commentId, postId) {
-    if (!confirm("Delete this comment?")) {
-        return;
-    }
+        async function deleteComment(commentId, postId) {
+            if (!confirm("Delete this comment?")) {
+                return;
+            }
 
-    try {
-        const response = await fetch(`/delete-comment/${commentId}`, { method: "POST" });
-        if (!response.ok) throw new Error(response.statusText || "Request failed");
-        const data = await response.json();
-        if (data.success) {
-            document.getElementById(`comment-${commentId}`).remove();
-            const countElement = document.getElementById(`comment-count-${postId}`);
-            if (countElement) countElement.innerText = data.comment_count;
-        } else {
-            alert(data.message || "Failed");
+            try {
+                const response = await fetch(`/delete-comment/${commentId}`, { method: "POST" });
+                if (!response.ok) throw new Error(response.statusText || "Request failed");
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById(`comment-${commentId}`).remove();
+                    const countElement = document.getElementById(`comment-count-${postId}`);
+                    if (countElement) countElement.innerText = data.comment_count;
+                } else {
+                    alert(data.message || "Failed");
+                }
+            } catch (err) {
+                alert("Error: " + err.message);
+            }
         }
-    } catch (err) {
-        alert("Error: " + err.message);
-    }
-}
 
-async function addComment(event, postId) {
-    event.preventDefault();
+        async function addComment(event, postId) {
+            event.preventDefault();
 
-    const input = document.getElementById(`comment-input-${postId}`);
-    const comment = input.value.trim();
+            const input = document.getElementById(`comment-input-${postId}`);
+            const comment = input.value.trim();
 
-    if (!comment) {
-        return;
-    }
+            if (!comment) {
+                return;
+            }
 
-    try {
-        const response = await fetch(`/comment/${postId}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: `comment=${encodeURIComponent(comment)}`
-        });
-        if (!response.ok) throw new Error(response.statusText || "Request failed");
-        const data = await response.json();
-        if (data.success) location.reload();
-    } catch (err) {
-        alert("Error: " + err.message);
-    }
-}
-</script>
+            try {
+                const response = await fetch(`/comment/${postId}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: `comment=${encodeURIComponent(comment)}`
+                });
+                if (!response.ok) throw new Error(response.statusText || "Request failed");
+                const data = await response.json();
+                if (data.success) location.reload();
+            } catch (err) {
+                alert("Error: " + err.message);
+            }
+        }
+    </script>
+    <script>
+        async function bookmarkPost(button) {
+            const postId = button.dataset.postId;
+
+            console.log("Bookmark post id:", postId);
+
+            if (!postId) {
+                alert("Post ID missing");
+                return;
+            }
+
+            const response = await fetch(`/bookmark/${postId}`, {
+                method: "POST"
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                button.innerText = data.bookmarked ? "✅ Saved" : "🔖 Save";
+            }
+        }
+    </script>
+
 </body>
 
 </html>

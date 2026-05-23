@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notifications - Flask Blog App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            padding: 32px 20px;
+        }
+
+        .container {
+            width: min(780px, 100%);
+            margin: 0 auto;
+        }
+
+        .page-header,
+        .notification-card,
+        .empty-state {
+            background: rgba(255, 255, 255, 0.96);
+            border: 1px solid rgba(255, 255, 255, 0.75);
+            border-radius: 18px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.12);
+        }
+
+        .page-header {
+            padding: 28px;
+            margin-bottom: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        h1 {
+            font-size: 30px;
+            line-height: 1.2;
+        }
+
+        .back-link,
+        .clear-btn {
+            border: none;
+            border-radius: 10px;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: none;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .back-link {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 18px;
+            display: inline-flex;
+        }
+
+        .back-link:hover,
+        .clear-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 24px rgba(102, 126, 234, 0.25);
+        }
+
+        .notifications-list {
+            display: grid;
+            gap: 14px;
+        }
+
+        .notification-card {
+            padding: 18px;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 14px;
+            align-items: center;
+        }
+
+        .notification-message {
+            font-size: 16px;
+            line-height: 1.5;
+            overflow-wrap: anywhere;
+        }
+
+        .notification-meta {
+            color: #666;
+            font-size: 13px;
+            margin-top: 6px;
+        }
+
+        .clear-btn {
+            background: #fee;
+            color: #b4232f;
+            border: 1px solid #f7b2b2;
+            padding: 10px 14px;
+        }
+
+        .empty-state {
+            padding: 42px 28px;
+            text-align: center;
+            color: #666;
+        }
+
+        @media (max-width: 560px) {
+            body {
+                padding: 20px 14px;
+            }
+
+            .notification-card {
+                grid-template-columns: 1fr;
+            }
+
+            .clear-btn {
+                width: 100%;
+            }
+        }
+    </style>
+    {% include "_theme.html" %}
+</head>
+
+<body>
+    <main class="container">
+        <header class="page-header">
+            <h1>Notifications</h1>
+            <a class="back-link" href="{{ url_for('dashboard') }}">Back to Dashboard</a>
+        </header>
+
+        {% if notifications %}
+        <section class="notifications-list" aria-label="Notifications">
+            {% for notification in notifications %}
+            <article class="notification-card">
+                <div>
+                    <p class="notification-message">{{ notification.message }}</p>
+                    <p class="notification-meta">
+                        From {{ notification.actor_username }} on {{ notification.created_at }}
+                    </p>
+                </div>
+                <form method="POST" action="{{ url_for('delete_notification', notification_id=notification.id) }}">
+                    <button class="clear-btn" type="submit">Clear</button>
+                </form>
+            </article>
+            {% endfor %}
+        </section>
+        {% else %}
+        <section class="empty-state">
+            <p>No notifications yet.</p>
+        </section>
+        {% endif %}
+    </main>
+</body>
+
+</html>

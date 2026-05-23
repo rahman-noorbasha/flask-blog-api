@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -23,7 +24,7 @@
             position: fixed;
             inset: 0;
             background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.14), transparent 18%),
-                        radial-gradient(circle at bottom right, rgba(15, 23, 42, 0.16), transparent 20%);
+                radial-gradient(circle at bottom right, rgba(15, 23, 42, 0.16), transparent 20%);
             pointer-events: none;
             z-index: -1;
         }
@@ -86,6 +87,64 @@
             box-shadow: 0 16px 35px rgba(67, 56, 202, 0.16);
         }
 
+        .profile-heading {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .profile-avatar,
+        .profile-avatar-initial {
+            width: 76px;
+            height: 76px;
+            border-radius: 50%;
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+            border: 3px solid rgba(255, 255, 255, 0.9);
+        }
+
+        .profile-avatar {
+            object-fit: cover;
+            display: block;
+        }
+
+        .profile-avatar-initial {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .profile-upload-form {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 16px;
+        }
+
+        .profile-upload-form input,
+        .profile-upload-form button {
+            border: none;
+            border-radius: 9999px;
+            padding: 0.75rem 1rem;
+            font: inherit;
+        }
+
+        .profile-upload-form input {
+            background: rgba(255, 255, 255, 0.92);
+            color: #374151;
+        }
+
+        .profile-upload-form button {
+            background: #eef2ff;
+            color: #3730a3;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
         .profile-summary {
             display: grid;
             grid-template-columns: repeat(3, minmax(180px, 1fr));
@@ -93,12 +152,18 @@
             margin-bottom: 32px;
         }
 
-        .summary-card {
-            background: rgba(255, 255, 255, 0.94);
-            border-radius: 24px;
-            padding: 26px 24px;
+        .summary-card,
+        .profile-card,
+        .post-card,
+        .empty-state {
+            background: rgba(255, 255, 255, 0.95);
             border: 1px solid rgba(255, 255, 255, 0.7);
             box-shadow: 0 24px 55px rgba(15, 23, 42, 0.08);
+        }
+
+        .summary-card {
+            border-radius: 24px;
+            padding: 26px 24px;
         }
 
         .summary-card span {
@@ -117,11 +182,8 @@
         }
 
         .profile-card {
-            background: rgba(255, 255, 255, 0.95);
             border-radius: 28px;
             padding: 32px;
-            border: 1px solid rgba(255, 255, 255, 0.7);
-            box-shadow: 0 28px 60px rgba(15, 23, 42, 0.1);
             margin-bottom: 32px;
         }
 
@@ -131,7 +193,8 @@
             color: #111827;
         }
 
-        .profile-card p {
+        .profile-card p,
+        .post-content {
             color: #4b5563;
             line-height: 1.8;
         }
@@ -142,11 +205,8 @@
         }
 
         .post-card {
-            background: rgba(255, 255, 255, 0.96);
-            border: 1px solid rgba(148, 163, 184, 0.18);
             border-radius: 24px;
             padding: 26px;
-            box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
         }
 
         .post-card h3 {
@@ -155,18 +215,38 @@
             color: #111827;
         }
 
-        .post-card p {
-            color: #374151;
-            line-height: 1.8;
+        .post-content,
+        .attachment-box,
+        .post-meta,
+        .post-actions {
             margin-bottom: 14px;
         }
 
-        .post-meta {
+        .attachment-image {
+            display: block;
+            width: 100%;
+            max-height: 420px;
+            object-fit: cover;
+            border-radius: 18px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .attachment-link {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            border-radius: 9999px;
+            background: #f8fafc;
+            border: 1px solid #dbeafe;
+            color: #3730a3;
+            font-weight: 700;
+        }
+
+        .post-meta,
+        .post-actions {
             display: flex;
             flex-wrap: wrap;
             gap: 12px;
-            color: #6b7280;
-            font-size: 0.95rem;
         }
 
         .post-meta span {
@@ -174,13 +254,95 @@
             align-items: center;
             gap: 8px;
             padding: 10px 14px;
+            color: #6b7280;
             background: rgba(99, 102, 241, 0.08);
             border-radius: 9999px;
+            font-size: 0.95rem;
+        }
+
+        .action-btn,
+        .comment-form button,
+        .comment-action-btn {
+            border: none;
+            border-radius: 9999px;
+            cursor: pointer;
+            font-weight: 700;
+        }
+
+        .action-btn,
+        .comment-form button {
+            padding: 0.75rem 1rem;
+            background: #eef2ff;
+            color: #3730a3;
+        }
+
+        .comment-section {
+            border-top: 1px solid #e5e7eb;
+            padding-top: 16px;
+        }
+
+        .comments-list {
+            display: grid;
+            gap: 10px;
+            max-height: 260px;
+            overflow-y: auto;
+            padding-right: 6px;
+        }
+
+        .comment-box {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 10px 12px;
+        }
+
+        .comment-text {
+            flex: 1;
+            color: #4b5563;
+            line-height: 1.55;
+        }
+
+        .comment-author {
+            color: #111827;
+            font-weight: 700;
+        }
+
+        .comment-content {
+            display: block;
+            margin-top: 4px;
+        }
+
+        .comment-edited {
+            color: #6b7280;
+            font-size: 0.85rem;
+        }
+
+        .comment-action-btn {
+            background: #fff;
+            color: #4b5563;
+            font-size: 0.78rem;
+            padding: 0.35rem 0.6rem;
+        }
+
+        .comment-form {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .comment-form input {
+            flex: 1;
+            min-width: 0;
+            border: 1px solid #d1d5db;
+            border-radius: 9999px;
+            padding: 0.75rem 1rem;
+            font: inherit;
         }
 
         .empty-state {
-            background: rgba(255, 255, 255, 0.92);
-            border: 1px dashed rgba(148, 163, 184, 0.6);
             border-radius: 24px;
             padding: 28px;
             text-align: center;
@@ -191,10 +353,6 @@
             font-size: 1.6rem;
             margin-bottom: 10px;
             color: #111827;
-        }
-
-        .empty-state p {
-            line-height: 1.75;
         }
 
         @media (max-width: 860px) {
@@ -213,18 +371,40 @@
                 padding: 24px 16px 30px;
             }
 
-            .nav-link {
+            .nav-link,
+            .action-btn {
                 width: 100%;
+            }
+
+            .comment-form {
+                flex-direction: column;
             }
         }
     </style>
+    {% include "_theme.html" %}
 </head>
+
 <body>
     <div class="page-shell">
         <header class="page-header">
             <div>
-                <h1>{{ user[1] }}'s Profile</h1>
+                <div class="profile-heading">
+                    {% if user[3] %}
+                    <img class="profile-avatar" src="{{ url_for('static', filename='uploads/' + user[3]) }}"
+                        alt="{{ user[1] }} profile picture">
+                    {% else %}
+                    <div class="profile-avatar-initial">{{ user[1][0].upper() }}</div>
+                    {% endif %}
+                    <h1>{{ user[1] }}'s Profile</h1>
+                </div>
                 <p>See this author's activity, post count, and recent contributions in a polished profile summary.</p>
+                {% if user[0] == current_user.id %}
+                <form class="profile-upload-form" method="POST" action="{{ url_for('upload_profile_pic') }}"
+                    enctype="multipart/form-data">
+                    <input type="file" name="profile_pic" accept="image/*" required>
+                    <button type="submit">Upload Profile Picture</button>
+                </form>
+                {% endif %}
             </div>
             <div class="nav-links">
                 <a class="nav-link" href="{{ url_for('feed') }}">Back to Feed</a>
@@ -238,6 +418,23 @@
                 <strong>{{ user[1] }}</strong>
             </div>
             <div class="summary-card">
+                <span>Followers</span>
+                <strong id="followers-count">{{ followers_count }}</strong>
+            </div>
+            <div class="summary-card">
+                <span>Following</span>
+                <strong>{{ following_count }}</strong>
+            </div>
+            {% if user[0] != current_user.id %}
+            <button type="button" id="follow-btn" onclick="followUser({{ user[0] }})">
+                {% if is_following %}
+                Unfollow
+                {% else %}
+                Follow
+                {% endif %}
+            </button>
+            {% endif %}
+            <div class="summary-card">
                 <span>Total Posts</span>
                 <strong>{{ total_posts }}</strong>
             </div>
@@ -249,48 +446,207 @@
 
         <section class="profile-card">
             <h2>About this author</h2>
-            <p>These are the most recent posts created by {{ user[1] }}. Click into the feed or dashboard to continue browsing the blog.</p>
+            <p>These are the most recent posts created by {{ user[1] }}. Click into the feed or dashboard to continue
+                browsing the blog.</p>
         </section>
 
         {% if posts %}
-            <div class="posts-grid">
-                {% for post in posts %}
-                    <article class="post-card">
-                        <h3>{{ post[1] }}</h3>
-                        <p>{{ post[2] }}</p>
-                        <div class="post-meta">
-                            <span>Posted: {{ post[4] }}</span>
-                            <span>By {{ user[1] }}</span>
+        <div class="posts-grid">
+            {% for post in posts %}
+            <article class="post-card">
+                <h3>{{ post.title }}</h3>
+                <p class="post-content">{{ post.content }}</p>
+
+                {% if post.attachment %}
+                <div class="attachment-box">
+                    {% if post.is_image_attachment %}
+                    <a href="{{ url_for('static', filename='uploads/' + post.attachment) }}" target="_blank">
+                        <img class="attachment-image"
+                            src="{{ url_for('static', filename='uploads/' + post.attachment) }}"
+                            alt="Attachment for {{ post.title }}">
+                    </a>
+                    {% else %}
+                    <a class="attachment-link" href="{{ url_for('static', filename='uploads/' + post.attachment) }}"
+                        target="_blank">Open Attachment</a>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <div class="post-meta">
+                    <span>Posted: {{ post.created_at }}</span>
+                    <span>By {{ user[1] }}</span>
+                    <span id="like-count-{{ post.id }}">{{ post.like_count }} likes</span>
+                    <span id="comment-count-{{ post.id }}">{{ post.comment_count }} comments</span>
+                </div>
+
+                <div class="post-actions">
+                    <button class="action-btn" type="button" onclick="likePost({{ post.id }})">Like</button>
+                    <button class="action-btn" type="button" onclick="focusComment({{ post.id }})">Comment</button>
+                    <button class="action-btn" type="button"
+                        data-link="{{ url_for('view_post', post_id=post.id, _external=True) }}"
+                        onclick="sharePost(this.dataset.link)">Share</button>
+                    <button class="action-btn" type="button" data-post-id="{{ post.id }}" onclick="bookmarkPost(this)">
+                        {% if post.is_bookmarked %}Saved{% else %}Save{% endif %}
+                    </button>
+                </div>
+
+                <section class="comment-section">
+                    <div class="comments-list" id="comments-list-{{ post.id }}">
+                        {% for comment in post.comments %}
+                        <div class="comment-box" id="comment-{{ comment.id }}">
+                            <div class="comment-text">
+                                <span class="comment-author">{{ comment.username }}</span>
+                                {% if comment.edited_at %}
+                                <span class="comment-edited">(edited)</span>
+                                {% endif %}
+                                <span class="comment-content">{{ comment.content }}</span>
+                            </div>
+                            {% if current_user.id == comment.user_id %}
+                            <button class="comment-action-btn" type="button"
+                                onclick="editComment({{ comment.id }})">Edit</button>
+                            {% endif %}
+                            {% if current_user.id == comment.user_id or current_user.id == post.user_id %}
+                            <button class="comment-action-btn" type="button"
+                                onclick="deleteComment({{ comment.id }}, {{ post.id }})">Delete</button>
+                            {% endif %}
                         </div>
-                    </article>
-                {% endfor %}
-            </div>
+                        {% endfor %}
+                    </div>
+                    <form class="comment-form" onsubmit="addComment(event, {{ post.id }})">
+                        <input type="text" id="comment-input-{{ post.id }}" placeholder="Write a comment..." required>
+                        <button type="submit">Post</button>
+                    </form>
+                </section>
+            </article>
+            {% endfor %}
+        </div>
         {% else %}
-            <div class="empty-state">
-                <h3>No posts yet</h3>
-                <p>{{ user[1] }} has not published any posts yet. Check back later or explore other authors in the feed.</p>
-            </div>
+        <div class="empty-state">
+            <h3>No posts yet</h3>
+            <p>{{ user[1] }} has not published any posts yet. Check back later or explore other authors in the feed.</p>
+        </div>
         {% endif %}
     </div>
+
+    <script>
+        async function likePost(postId) {
+            const response = await fetch(`/like/${postId}`, { method: "POST" });
+            const data = await response.json();
+
+            if (data.success) {
+                document.getElementById(`like-count-${postId}`).innerText = `${data.likes} likes`;
+            }
+        }
+
+        function focusComment(postId) {
+            document.getElementById(`comment-input-${postId}`).focus();
+        }
+
+        async function addComment(event, postId) {
+            event.preventDefault();
+
+            const input = document.getElementById(`comment-input-${postId}`);
+            const comment = input.value.trim();
+
+            if (!comment) {
+                return;
+            }
+
+            const response = await fetch(`/comment/${postId}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: `comment=${encodeURIComponent(comment)}`
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                location.reload();
+            }
+        }
+
+        async function editComment(commentId) {
+            const commentBox = document.getElementById(`comment-${commentId}`);
+            const content = commentBox.querySelector(".comment-content");
+            const newComment = prompt("Edit comment:", content.innerText);
+
+            if (!newComment || newComment.trim() === "") {
+                return;
+            }
+
+            const response = await fetch(`/comment/edit/${commentId}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: `comment=${encodeURIComponent(newComment)}`
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                content.innerText = data.comment;
+
+                if (data.edited && !commentBox.querySelector(".comment-edited")) {
+                    const editedBadge = document.createElement("span");
+                    editedBadge.className = "comment-edited";
+                    editedBadge.innerText = " (edited)";
+                    commentBox.querySelector(".comment-author").after(editedBadge);
+                }
+            } else {
+                alert(data.message || "Failed to edit comment");
+            }
+        }
+
+        async function deleteComment(commentId, postId) {
+            if (!confirm("Delete this comment?")) {
+                return;
+            }
+
+            const response = await fetch(`/delete-comment/${commentId}`, { method: "POST" });
+            const data = await response.json();
+
+            if (data.success) {
+                document.getElementById(`comment-${commentId}`).remove();
+                document.getElementById(`comment-count-${postId}`).innerText = `${data.comment_count} comments`;
+            } else {
+                alert(data.message || "Failed to delete comment");
+            }
+        }
+
+        async function sharePost(link) {
+            if (navigator.share) {
+                await navigator.share({ url: link });
+                return;
+            }
+
+            await navigator.clipboard.writeText(link);
+            alert("Post link copied!");
+        }
+
+        async function bookmarkPost(button) {
+            const postId = button.dataset.postId;
+            const response = await fetch(`/bookmark/${postId}`, { method: "POST" });
+            const data = await response.json();
+
+            if (data.success) {
+                button.innerText = data.bookmarked ? "Saved" : "Save";
+            }
+        }
+    </script>
+    <script>
+async function followUser(userId) {
+    const response = await fetch(`/follow/${userId}`, {
+        method: "POST"
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+        document.getElementById("follow-btn").textContent =
+            data.following ? "Unfollow" : "Follow";
+
+        document.getElementById("followers-count").textContent =
+            data.followers_count;
+    }
+}
+</script>
 </body>
-</html>
 
-    <a href="{{ url_for('feed') }}">Back to Feed</a>
-    <a href="{{ url_for('dashboard') }}">Dashboard</a>
-
-    <hr>
-
-    <h2>Posts by {{ user[1] }}</h2>
-
-    {% for post in posts %}
-        <div>
-            <h3>{{ post[1] }}</h3>
-            <p>{{ post[2] }}</p>
-            <small>Posted: {{ post[4] }}</small>
-            <hr>
-        </div>
-    {% else %}
-        <p>No posts yet.</p>
-    {% endfor %}
-</body>
 </html>
