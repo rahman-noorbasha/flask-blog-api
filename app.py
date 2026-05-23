@@ -95,6 +95,14 @@ CREATE TABLE IF NOT EXISTS bookmarks (
     user_columns = [column[1] for column in cursor.fetchall()]
     if "profile_pic" not in user_columns:
         cursor.execute("ALTER TABLE users ADD COLUMN profile_pic TEXT")
+    if "bio" not in user_columns:
+        cursor.execute("ALTER TABLE users ADD COLUMN bio TEXT")
+    if "github" not in user_columns:
+        cursor.execute("ALTER TABLE users ADD COLUMN github TEXT")
+    if "linkedin" not in user_columns:
+        cursor.execute("ALTER TABLE users ADD COLUMN linkedin TEXT")
+    if "location" not in user_columns:
+        cursor.execute("ALTER TABLE users ADD COLUMN location TEXT")
 
     conn.commit()
     conn.close()
@@ -1166,6 +1174,59 @@ def delete_notification(notification_id):
     conn.close()
 
     return redirect(url_for("notifications"))
+
+@app.route("/edit-profile", methods=["GET", "POST"])
+@login_required
+def edit_profile():
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+
+    if request.method == "POST":
+        bio = request.form.get("bio")
+        github = request.form.get("github")
+        linkedin = request.form.get("linkedin")
+        location = request.form.get("location")
+
+        cursor.execute(
+            """
+            UPDATE users
+            SET bio=?, github=?, linkedin=?, location=?
+            WHERE id=?
+            """,
+            (
+                bio,
+                github,
+                linkedin,
+                location,
+                current_user.id
+            )
+        )
+
+        conn.commit()
+        conn.close()
+
+        flash("Profile updated successfully", "success")
+
+        return redirect(
+            url_for(
+                "user_profile",
+                username=current_user.username
+            )
+        )
+
+    cursor.execute(
+        "SELECT * FROM users WHERE id=?",
+        (current_user.id,)
+    )
+
+    user = cursor.fetchone()
+
+    conn.close()
+
+    return render_template(
+        "edit_profile.html",
+        user=user
+    )
 
 if __name__ == "__main__":
     app.run(debug=True)
