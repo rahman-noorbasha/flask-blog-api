@@ -2,8 +2,12 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_sqlalchemy import SQLAlchemy
+from dotenv import load_dotenv
+from datetime import datetime
 import sqlite3
 import os
+import secrets
 
 app = Flask(__name__)
 app.config["UPLOAD_FOLDER"] = "static/uploads"
@@ -15,6 +19,20 @@ os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = "login"
+load_dotenv()
+
+basedir = os.path.abspath(os.path.dirname(__file__))
+
+database_url = os.environ.get("DATABASE_URL")
+
+if database_url:
+    app.config["SQLALCHEMY_DATABASE_URI"] = database_url
+else:
+    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///" + os.path.join(basedir, "users.db")
+
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+db = SQLAlchemy(app)
 
 
 # ---------------- DATABASE ----------------
@@ -23,13 +41,21 @@ def init_db():
     cursor = conn.cursor()
 
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE,
-        password TEXT,
-        profile_pic TEXT
-    )
-    """)
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE,
+    password TEXT,
+    profile_pic TEXT,
+    bio TEXT,
+    github TEXT,
+    linkedin TEXT,
+    location TEXT,
+    email TEXT UNIQUE,
+    is_verified INTEGER DEFAULT 0,
+    verification_token TEXT,
+    reset_token TEXT
+)
+""")
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS posts (
@@ -103,12 +129,21 @@ CREATE TABLE IF NOT EXISTS bookmarks (
         cursor.execute("ALTER TABLE users ADD COLUMN linkedin TEXT")
     if "location" not in user_columns:
         cursor.execute("ALTER TABLE users ADD COLUMN location TEXT")
+    if "email" not in user_columns:
+        cursor.execute("ALTER TABLE users ADD COLUMN email TEXT")
 
+    if "is_verified" not in user_columns:
+        cursor.execute("ALTER TABLE users ADD COLUMN is_verified INTEGER DEFAULT 0")
+
+    if "verification_token" not in user_columns:
+        cursor.execute("ALTER TABLE users ADD COLUMN verification_token TEXT")
+    if "reset_token" not in user_columns:
+        cursor.execute("ALTER TABLE users ADD COLUMN reset_token TEXT")
     conn.commit()
     conn.close()
 
 
-init_db()
+#init_db()
 def create_notification(user_id, actor_id, notification_type, post_id, message):
     if user_id == actor_id:
         return
@@ -147,30 +182,30 @@ def inject_notification_count():
     return dict(unread_notifications=0)
 
 # ---------------- USER CLASS ----------------
-class User(UserMixin):
-    def __init__(self, id, username, profile_pic=None):
-        self.id = id
-        self.username = username
-        self.profile_pic = profile_pic
+class User(db.Model, UserMixin):
+    __tablename__ = "users"
+
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(150), unique=True, nullable=False)
+    password = db.Column(db.Text, nullable=False)
+    profile_pic = db.Column(db.Text)
+    bio = db.Column(db.Text)
+    github = db.Column(db.Text)
+    linkedin = db.Column(db.Text)
+    location = db.Column(db.Text)
+    email = db.Column(db.String(255), unique=True)
+    is_verified = db.Column(db.Integer, default=0)
+    verification_token = db.Column(db.Text)
+    reset_token = db.Column(db.Text)
+    
+with app.app_context():
+    db.create_all()
+    
 
 
 @login_manager.user_loader
 def load_user(user_id):
-    conn = sqlite3.connect("users.db")
-    cursor = conn.cursor()
-    try:
-        uid = int(user_id)
-    except Exception:
-        conn.close()
-        return None
-
-    cursor.execute("SELECT id, username, password, profile_pic FROM users WHERE id=?", (uid,))
-    user = cursor.fetchone()
-    conn.close()
-
-    if user:
-        return User(user[0], user[1], user[3])
-    return None
+    return User.query.get(int(user_id))
 
 
 # ---------------- ROUTES ----------------
@@ -182,24 +217,42 @@ def home():
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
-        username = request.form["username"]
+        username = request.form.get("username", "").strip()
+        email = request.form.get("email", "").strip()
         password = generate_password_hash(request.form["password"])
+        verification_token = secrets.token_hex(16)
 
-        conn = sqlite3.connect("users.db")
-        cursor = conn.cursor()
+        existing_email = User.query.filter_by(email=email).first()
+        if existing_email:
+            flash("Email already registered. Please login or use another email.", "error")
+            return redirect(url_for("register"))
 
-        try:
-            cursor.execute(
-                "INSERT INTO users (username, password) VALUES (?, ?)",
-                (username, password)
-            )
-            conn.commit()
-            flash("Registration successful!", "success")
-            return redirect(url_for("login"))
-        except:
+        existing_username = User.query.filter_by(username=username).first()
+        if existing_username:
             flash("Username already exists", "error")
+            return redirect(url_for("register"))
 
-        conn.close()
+        new_user = User(
+            username=username,
+            email=email,
+            password=password,
+            verification_token=verification_token,
+            is_verified=0
+        )
+
+        db.session.add(new_user)
+        db.session.commit()
+
+        verification_link = url_for(
+            "verify_email",
+            token=verification_token,
+            _external=True
+        )
+
+        print("Verification link:", verification_link)
+
+        flash("Registration successful! Please verify your email.", "success")
+        return redirect(url_for("login"))
 
     return render_template("register.html")
 
@@ -209,18 +262,11 @@ def login():
         username = request.form.get("username", "")
         password = request.form.get("password", "")
 
-        conn = sqlite3.connect("users.db")
-        cursor = conn.cursor()
-
-        cursor.execute(
-            "SELECT id, username, password, profile_pic FROM users WHERE username=?",
-            (username,)
-        )
-
-        user = cursor.fetchone()
+        user = User.query.filter_by(username=username).first()
 
         if user:
-            stored_password = user[2]
+            stored_password = user.password
+            valid_password = False
 
             if stored_password.startswith("scrypt:") or stored_password.startswith("pbkdf2:"):
                 valid_password = check_password_hash(stored_password, password)
@@ -228,25 +274,20 @@ def login():
                 valid_password = stored_password == password
 
                 if valid_password:
-                    new_hash = generate_password_hash(password)
-
-                    cursor.execute(
-                        "UPDATE users SET password=? WHERE id=?",
-                        (new_hash, user[0])
-                    )
-
-                    conn.commit()
+                    user.password = generate_password_hash(password)
+                    db.session.commit()
 
             if valid_password:
-                conn.close()
-                login_user(User(user[0], user[1], user[3]))
+                if user.email and user.is_verified == 0:
+                    flash("Please verify your email before logging in.", "error")
+                    return redirect(url_for("login"))
+
+                login_user(user)
                 return redirect(url_for("dashboard"))
 
-        conn.close()
         flash("Invalid credentials", "error")
 
     return render_template("login.html")
-
 
 @app.route("/dashboard")
 @login_required
@@ -508,6 +549,33 @@ def delete_post(post_id):
     cursor = conn.cursor()
 
     cursor.execute(
+        "SELECT id FROM posts WHERE id=? AND user_id=?",
+        (post_id, current_user.id)
+    )
+    post = cursor.fetchone()
+
+    if not post:
+        conn.close()
+        flash("Post not found or access denied.", "error")
+        return redirect(url_for("dashboard"), code=303)
+
+    cursor.execute(
+        "DELETE FROM likes WHERE post_id=?",
+        (post_id,)
+    )
+    cursor.execute(
+        "DELETE FROM comments WHERE post_id=?",
+        (post_id,)
+    )
+    cursor.execute(
+        "DELETE FROM bookmarks WHERE post_id=?",
+        (post_id,)
+    )
+    cursor.execute(
+        "DELETE FROM notifications WHERE post_id=?",
+        (post_id,)
+    )
+    cursor.execute(
         "DELETE FROM posts WHERE id=? AND user_id=?",
         (post_id, current_user.id)
     )
@@ -529,13 +597,45 @@ def delete_account():
     conn = sqlite3.connect("users.db")
     cursor = conn.cursor()
 
-    # Delete user's posts
+    cursor.execute(
+        "SELECT id FROM posts WHERE user_id=?",
+        (current_user.id,)
+    )
+    post_ids = [row[0] for row in cursor.fetchall()]
+
+    if post_ids:
+        placeholders = ",".join("?" for _ in post_ids)
+        cursor.execute(f"DELETE FROM likes WHERE post_id IN ({placeholders})", post_ids)
+        cursor.execute(f"DELETE FROM comments WHERE post_id IN ({placeholders})", post_ids)
+        cursor.execute(f"DELETE FROM bookmarks WHERE post_id IN ({placeholders})", post_ids)
+        cursor.execute(f"DELETE FROM notifications WHERE post_id IN ({placeholders})", post_ids)
+
+    cursor.execute(
+        "DELETE FROM likes WHERE user_id=?",
+        (current_user.id,)
+    )
+    cursor.execute(
+        "DELETE FROM comments WHERE user_id=?",
+        (current_user.id,)
+    )
+    cursor.execute(
+        "DELETE FROM bookmarks WHERE user_id=?",
+        (current_user.id,)
+    )
+    cursor.execute(
+        "DELETE FROM followers WHERE follower_id=? OR following_id=?",
+        (current_user.id, current_user.id)
+    )
+    cursor.execute(
+        "DELETE FROM notifications WHERE user_id=? OR actor_id=?",
+        (current_user.id, current_user.id)
+    )
+
     cursor.execute(
         "DELETE FROM posts WHERE user_id=?",
         (current_user.id,)
     )
 
-    # Delete user account
     cursor.execute(
         "DELETE FROM users WHERE id=?",
         (current_user.id,)
@@ -558,29 +658,19 @@ def like_post(post_id):
         "SELECT * FROM likes WHERE user_id=? AND post_id=?",
         (current_user.id, post_id)
     )
-    cursor.execute(
-    "SELECT user_id FROM posts WHERE id=?",
-    (post_id,)
-)
-
-    post_owner = cursor.fetchone()[0]
-
-    if post_owner != current_user.id:
-        cursor.execute(
-        """
-        INSERT INTO notifications (user_id, actor_id, type, post_id, message)
-        VALUES (?, ?, ?, ?, ?)
-        """,
-        (
-            post_owner,
-            current_user.id,
-            "like",
-            post_id,
-            f"{current_user.username} liked your post"
-        )
-    )
-
     existing_like = cursor.fetchone()
+
+    cursor.execute(
+        "SELECT user_id FROM posts WHERE id=?",
+        (post_id,)
+    )
+    post = cursor.fetchone()
+
+    if not post:
+        conn.close()
+        return jsonify({"success": False, "message": "Post not found"}), 404
+
+    post_owner = post[0]
 
     if existing_like:
         cursor.execute(
@@ -592,6 +682,20 @@ def like_post(post_id):
             "INSERT INTO likes (user_id, post_id) VALUES (?, ?)",
             (current_user.id, post_id)
         )
+        if post_owner != current_user.id:
+            cursor.execute(
+                """
+                INSERT INTO notifications (user_id, actor_id, type, post_id, message)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    post_owner,
+                    current_user.id,
+                    "like",
+                    post_id,
+                    f"{current_user.username} liked your post"
+                )
+            )
 
     conn.commit()
     cursor.execute(
@@ -609,11 +713,21 @@ def like_post(post_id):
 @app.route("/comment/<int:post_id>", methods=["POST"])
 @login_required
 def comment_post(post_id):
-    content = request.form.get("comment", "")
+    content = request.form.get("comment", "").strip()
 
-    if content and content.strip():
+    if content:
         conn = sqlite3.connect("users.db")
         cursor = conn.cursor()
+
+        cursor.execute(
+            "SELECT user_id FROM posts WHERE id=?",
+            (post_id,)
+        )
+        post = cursor.fetchone()
+
+        if not post:
+            conn.close()
+            return jsonify({"success": False, "message": "Post not found"}), 404
 
         cursor.execute(
             """
@@ -623,27 +737,23 @@ def comment_post(post_id):
             (content, current_user.id, post_id)
         )
         comment_id = cursor.lastrowid
-        cursor.execute(
-    "SELECT user_id FROM posts WHERE id=?",
-    (post_id,)
-)
 
-        post_owner = cursor.fetchone()[0]
+        post_owner = post[0]
 
         if post_owner != current_user.id:
-                cursor.execute(
-        """
-        INSERT INTO notifications (user_id, actor_id, type, post_id, message)
-        VALUES (?, ?, ?, ?, ?)
-        """,
-        (
-            post_owner,
-            current_user.id,
-            "comment",
-            post_id,
-            f"{current_user.username} commented on your post"
-        )
-    )
+            cursor.execute(
+                """
+                INSERT INTO notifications (user_id, actor_id, type, post_id, message)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    post_owner,
+                    current_user.id,
+                    "comment",
+                    post_id,
+                    f"{current_user.username} commented on your post"
+                )
+            )
 
         conn.commit()
         cursor.execute(
@@ -685,11 +795,29 @@ def feed():
     conn = sqlite3.connect("users.db")
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT posts.id, posts.title, posts.content, posts.user_id, posts.created_at, posts.attachment, users.username
-        FROM posts
-        JOIN users ON posts.user_id = users.id
-        ORDER BY posts.created_at DESC
-    """)
+    SELECT posts.id,
+           posts.title,
+           posts.content,
+           posts.user_id,
+           posts.created_at,
+           posts.attachment,
+           users.username,
+
+           CASE
+               WHEN posts.user_id IN (
+                   SELECT following_id
+                   FROM followers
+                   WHERE follower_id=?
+               )
+               THEN 1
+               ELSE 0
+           END AS priority
+
+    FROM posts
+    JOIN users ON posts.user_id = users.id
+
+    ORDER BY priority DESC, posts.created_at DESC
+""", (current_user.id,))
     
     raw_posts = cursor.fetchall()
     posts = []
@@ -736,6 +864,7 @@ def feed():
             "attachment": p[5],
             "is_image_attachment": bool(p[5]) and p[5].lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".webp")),
             "username": p[6],
+            "priority": p[7],
             "like_count": like_count,
             "comment_count": comment_count,
             "comments": comments,
@@ -1017,6 +1146,11 @@ def bookmark_post(post_id):
     conn = sqlite3.connect("users.db")
     cursor = conn.cursor()
 
+    cursor.execute("SELECT id FROM posts WHERE id=?", (post_id,))
+    if not cursor.fetchone():
+        conn.close()
+        return {"success": False, "message": "Post not found"}, 404
+
     cursor.execute(
         "SELECT * FROM bookmarks WHERE user_id=? AND post_id=?",
         (current_user.id, post_id)
@@ -1076,6 +1210,11 @@ def follow_user(user_id):
 
     conn = sqlite3.connect("users.db")
     cursor = conn.cursor()
+
+    cursor.execute("SELECT id FROM users WHERE id=?", (user_id,))
+    if not cursor.fetchone():
+        conn.close()
+        return {"success": False, "message": "User not found"}, 404
 
     cursor.execute(
         "SELECT * FROM followers WHERE follower_id=? AND following_id=?",
@@ -1227,6 +1366,143 @@ def edit_profile():
         "edit_profile.html",
         user=user
     )
+
+@app.route("/verify-email/<token>")
+def verify_email(token):
+    print("TOKEN FROM URL:", token)
+
+    user = User.query.filter_by(verification_token=token).first()
+
+    print("USER FOUND:", user)
+
+    if user:
+        user.is_verified = 1
+        user.verification_token = None
+
+        db.session.commit()
+
+        flash("Email verified successfully. You can now login.", "success")
+        return redirect(url_for("login"))
+
+    flash("Invalid or expired verification link.", "error")
+    return redirect(url_for("login"))
+
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    if request.method == "POST":
+        email = request.form.get("email", "")
+
+        print("EMAIL ENTERED:", email)
+
+        conn = sqlite3.connect("users.db")
+        cursor = conn.cursor()
+
+        cursor.execute(
+            "SELECT id, username, email FROM users WHERE email=?",
+            (email,)
+        )
+
+        user = cursor.fetchone()
+
+        print("USER FOUND:", user)
+
+        if user:
+            reset_token = secrets.token_hex(16)
+
+            cursor.execute(
+                "UPDATE users SET reset_token=? WHERE id=?",
+                (reset_token, user[0])
+            )
+
+            conn.commit()
+
+            reset_link = url_for(
+                "reset_password",
+                token=reset_token,
+                _external=True
+            )
+
+            print("Password reset link:", reset_link)
+
+        conn.close()
+
+        flash(
+            "If this email exists, a password reset link has been generated.",
+            "success"
+        )
+
+        return redirect(url_for("login"))
+
+    return render_template("forgot_password.html")
+@app.route("/reset-password/<token>", methods=["GET", "POST"])
+def reset_password(token):
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "SELECT id FROM users WHERE reset_token=?",
+        (token,)
+    )
+
+    user = cursor.fetchone()
+
+    if not user:
+        conn.close()
+        flash("Invalid or expired reset link.", "error")
+        return redirect(url_for("login"))
+
+    if request.method == "POST":
+        new_password = request.form.get("password")
+        hashed_password = generate_password_hash(new_password)
+
+        cursor.execute(
+            """
+            UPDATE users
+            SET password=?, reset_token=NULL
+            WHERE id=?
+            """,
+            (hashed_password, user[0])
+        )
+
+        conn.commit()
+        conn.close()
+
+        flash("Password reset successful. Please login.", "success")
+        return redirect(url_for("login"))
+
+    conn.close()
+    return render_template("reset_password.html")
+
+@app.route("/resend-verification", methods=["POST"])
+def resend_verification():
+    email = request.form.get("email", "")
+
+    user = User.query.filter_by(email=email).first()
+
+    if not user:
+        flash("No account found with this email.", "error")
+        return redirect(url_for("login"))
+
+    if user.is_verified == 1:
+        flash("This email is already verified. Please login.", "success")
+        return redirect(url_for("login"))
+
+    new_token = secrets.token_hex(16)
+
+    user.verification_token = new_token
+
+    db.session.commit()
+
+    verification_link = url_for(
+        "verify_email",
+        token=new_token,
+        _external=True
+    )
+
+    print("New verification link:", verification_link)
+
+    flash("New verification link generated. Check terminal for now.", "success")
+    return redirect(url_for("login"))
 
 if __name__ == "__main__":
     app.run(debug=True)

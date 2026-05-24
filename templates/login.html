@@ -1,17 +1,28 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Flask Blog App</title>
     <style>
         /* Scale UI down 10% globally */
-        :root { --ui-scale: 0.9; }
-        @supports (zoom: .9) {
-            body { zoom: .9; }
+        :root {
+            --ui-scale: 0.9;
         }
+
+        @supports (zoom: .9) {
+            body {
+                zoom: .9;
+            }
+        }
+
         @supports not (zoom: .9) {
-            body { transform: scale(var(--ui-scale)); transform-origin: top center; width: calc(100% / var(--ui-scale)); }
+            body {
+                transform: scale(var(--ui-scale));
+                transform-origin: top center;
+                width: calc(100% / var(--ui-scale));
+            }
         }
 
         * {
@@ -49,6 +60,7 @@
             0% {
                 transform: translate(0, 0);
             }
+
             100% {
                 transform: translate(50px, 50px);
             }
@@ -68,9 +80,12 @@
         }
 
         @keyframes float {
-            0%, 100% {
+
+            0%,
+            100% {
                 transform: translateY(0px);
             }
+
             50% {
                 transform: translateY(20px);
             }
@@ -93,7 +108,7 @@
             backdrop-filter: blur(22px);
             border-radius: 24px;
             box-shadow: 0 25px 60px rgba(0, 0, 0, 0.18),
-                        0 0 120px rgba(102, 126, 234, 0.18);
+                0 0 120px rgba(102, 126, 234, 0.18);
             padding: 48px 36px;
             width: 100%;
             animation: slideUp 0.6s ease-out;
@@ -107,6 +122,7 @@
                 opacity: 0;
                 transform: translateY(30px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -126,9 +142,12 @@
         }
 
         @keyframes logoFloat {
-            0%, 100% {
+
+            0%,
+            100% {
                 transform: translateY(0);
             }
+
             50% {
                 transform: translateY(-4px);
             }
@@ -172,7 +191,8 @@
         }
 
         input[type="text"],
-        input[type="password"] {
+        input[type="password"],
+        input[type="email"] {
             width: 100%;
             padding: 14px 16px;
             border: 1px solid #d9d9dd;
@@ -185,7 +205,8 @@
         }
 
         input[type="text"]:focus,
-        input[type="password"]:focus {
+        input[type="password"]:focus,
+        input[type="email"]:focus {
             outline: none;
             border-color: #667eea;
             background-color: #fff;
@@ -235,6 +256,7 @@
                 opacity: 0;
                 transform: translateX(-20px);
             }
+
             to {
                 opacity: 1;
                 transform: translateX(0);
@@ -258,6 +280,39 @@
             margin-top: 10px;
             padding-top: 18px;
             border-top: 1px solid #e8e8ed;
+        }
+
+        .resend-form {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding-top: 18px;
+            border-top: 1px solid #e8e8ed;
+        }
+
+        .resend-form p {
+            color: #555;
+            font-size: 14px;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .resend-btn {
+            width: 100%;
+            padding: 12px 14px;
+            background: #f2f6ff;
+            color: #4f55c5;
+            border: 1px solid rgba(102, 126, 234, 0.24);
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        .resend-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 24px rgba(102, 126, 234, 0.16);
         }
 
         .login-footer p {
@@ -308,6 +363,7 @@
 
             input[type="text"],
             input[type="password"],
+            input[type="email"],
             .login-btn {
                 padding: 12px 14px;
                 font-size: 14px;
@@ -315,6 +371,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <div class="login-wrapper">
@@ -325,49 +382,45 @@
             </div>
 
             {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    <div class="alerts">
-                        {% for category, message in messages %}
-                            <div class="alert {{ 'alert-success' if category == 'success' else 'alert-danger' }}">
-                                {{ message }}
-                            </div>
-                        {% endfor %}
-                    </div>
-                {% endif %}
+            {% if messages %}
+            <div class="alerts">
+                {% for category, message in messages %}
+                <div class="alert {{ 'alert-success' if category == 'success' else 'alert-danger' }}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
             {% endwith %}
 
-            <form method="POST" action="/login" class="login-form">
+            <form method="POST" action="{{ url_for('login') }}" class="login-form">
                 <div class="form-group">
                     <label for="username">Username</label>
-                    <input
-                        type="text"
-                        id="username"
-                        name="username"
-                        placeholder="Enter your username"
-                        required
-                        autofocus
-                    >
+                    <input type="text" id="username" name="username" placeholder="Enter your username" required
+                        autofocus>
                 </div>
 
                 <div class="form-group">
                     <label for="password">Password</label>
-                    <input
-                        type="password"
-                        id="password"
-                        name="password"
-                        placeholder="Enter your password"
-                        required
-                    >
+                    <input type="password" id="password" name="password" placeholder="Enter your password" required>
+                    <a href="{{ url_for('forgot_password') }}">Forgot Password?</a>
                 </div>
 
                 <button type="submit" class="login-btn">Sign In</button>
             </form>
 
+            <form method="POST" action="{{ url_for('resend_verification') }}" class="resend-form">
+                <p>Need a new verification link?</p>
+                <input type="email" name="email" placeholder="Enter email to resend verification" required>
+                <button type="submit" class="resend-btn">Resend Verification Link</button>
+            </form>
+
             <div class="login-footer">
                 <p>Don't have an account yet?</p>
-                <p><a href="/register" class="register-link">Create your account</a></p>
+                <p><a href="{{ url_for('register') }}" class="register-link">Create your account</a></p>
             </div>
         </div>
     </div>
 </body>
+
 </html>

@@ -788,6 +788,7 @@
             margin-left: 5px;
             font-weight: bold;
         }
+
         .dark-mode-btn {
             padding: 8px 14px;
             border: 1px solid transparent;
@@ -798,6 +799,16 @@
             font-weight: 600;
             transition: all 0.3s ease;
         }
+        .following-label {
+    display: inline-block;
+    background: #e8f5e9;
+    color: #2e7d32;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    margin-top: 6px;
+}
     </style>
     {% include "_theme.html" %}
 
@@ -921,6 +932,9 @@
                             <div class="post-meta">
                                 <div class="meta-item">📅 Posted: {{ post.created_at }}</div>
                                 <div class="meta-item">✍️ By You</div>
+                                {% if post.priority == 1 %}
+                                <span class="following-label">Following</span>
+                                {% endif %}
                                 <div class="meta-item">❤️ {{ like_count }} likes</div>
                                 <div class="meta-item">💬 {{ comment_count }} comments</div>
                             </div>

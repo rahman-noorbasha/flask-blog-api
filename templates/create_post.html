@@ -82,8 +82,9 @@
         }
 
         .navbar-brand::before {
-            content: '📝';
-            font-size: 28px;
+            content: 'Blog';
+            font-size: 13px;
+            color: #667eea;
         }
 
         .navbar-links {
@@ -219,6 +220,7 @@
         }
 
         input[type="text"],
+        input[type="file"],
         textarea {
             width: 100%;
             padding: 16px 18px;
@@ -233,6 +235,7 @@
         }
 
         input[type="text"]:focus,
+        input[type="file"]:focus,
         textarea:focus {
             outline: none;
             border-color: #667eea;
@@ -340,7 +343,7 @@
         <div class="navbar-content">
             <div class="navbar-brand">Flask Blog App</div>
             <div class="navbar-links">
-                <a href="/dashboard" class="nav-link">← Back to Dashboard</a>
+                <a href="{{ url_for('dashboard') }}" class="nav-link">Back to Dashboard</a>
             </div>
         </div>
     </nav>
@@ -386,14 +389,17 @@
                         placeholder="Write your content here..."
                         required
                     >{{ content_value|default('') }}</textarea>
-                    <label>Attachment</label>
-                    <input type="file" name="attachment">
+                    <label for="attachment">Attachment</label>
+                    <input type="file" id="attachment" name="attachment">
                 </div>
 
-                <button type="submit" class="post-btn">{{ btn_text }}</button>
-                <a href="{{ url_for('dashboard') }}" class="cancel-btn">Cancel</a>
+                <div class="form-actions">
+                    <button type="submit" class="post-btn">{{ btn_text }}</button>
+                    <a href="{{ url_for('dashboard') }}" class="cancel-btn">Cancel</a>
+                </div>
             </form>
         </div>
     </div>
 </body>
 </html>
+
