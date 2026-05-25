@@ -130,9 +130,9 @@ Author
 
 Abdul Rahman Noorbasha
 
-GitHub: https://github.com/rahman-noorbasha
-LinkedIn: https://www.linkedin.com/in/abdul-rahman-noorbasha-422166128
-Live Project: https://flask-blog-platform-qi9m.onrender.com
+- GitHub: https://github.com/rahman-noorbasha
+- LinkedIn: https://www.linkedin.com/in/abdul-rahman-noorbasha-422166128
+- Live Project: https://flask-blog-platform-qi9m.onrender.com
 ----------------------------
 Project Status
 
