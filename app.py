@@ -5,12 +5,20 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 from datetime import datetime
-import sqlite3
+from flask_mail import Mail, Message
 import os
 import secrets
 
 app = Flask(__name__)
 app.config["UPLOAD_FOLDER"] = "static/uploads"
+app.config["MAIL_SERVER"] = "smtp.gmail.com"
+app.config["MAIL_PORT"] = 587
+app.config["MAIL_USE_TLS"] = True
+app.config["MAIL_USERNAME"] = os.environ.get("MAIL_USERNAME")
+app.config["MAIL_PASSWORD"] = os.environ.get("MAIL_PASSWORD")
+app.config["MAIL_DEFAULT_SENDER"] = os.environ.get("MAIL_USERNAME")
+
+mail = Mail(app)
 app.secret_key = os.environ.get("SECRET_KEY","local-dev-secret-key")
 
 # ensure upload folder exists
@@ -34,133 +42,14 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
 
+app.config["MAIL_SERVER"] = "smtp.gmail.com"
+app.config["MAIL_PORT"] = 587
+app.config["MAIL_USE_TLS"] = True
+app.config["MAIL_USERNAME"] = os.environ.get("MAIL_USERNAME")
+app.config["MAIL_PASSWORD"] = os.environ.get("MAIL_PASSWORD")
+app.config["MAIL_DEFAULT_SENDER"] = os.environ.get("MAIL_USERNAME")
 
-# ---------------- DATABASE ----------------
-def init_db():
-    conn = sqlite3.connect("users.db")
-    cursor = conn.cursor()
-
-    cursor.execute("""
-CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT UNIQUE,
-    password TEXT,
-    profile_pic TEXT,
-    bio TEXT,
-    github TEXT,
-    linkedin TEXT,
-    location TEXT,
-    email TEXT UNIQUE,
-    is_verified INTEGER DEFAULT 0,
-    verification_token TEXT,
-    reset_token TEXT
-)
-""")
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS posts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT,
-        content TEXT,
-        user_id INTEGER,
-        created_at TIMESTAMP,
-        attachment TEXT
-    )
-    """)
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS likes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER,
-    post_id INTEGER
-)
-""")
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS comments (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    content TEXT,
-    user_id INTEGER,
-    post_id INTEGER,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    edited_at TIMESTAMP DEFAULT NULL
-)
-""")
-    cursor.execute("""
-CREATE TABLE IF NOT EXISTS bookmarks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER,
-    post_id INTEGER
-)
-""")
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS followers (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    follower_id INTEGER,
-    following_id INTEGER
-)
-""")
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS notifications (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER,
-    actor_id INTEGER,
-    type TEXT,
-    post_id INTEGER,
-    message TEXT,
-    is_read INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)
-""")
-
-    cursor.execute("PRAGMA table_info(comments)")
-    comment_columns = [column[1] for column in cursor.fetchall()]
-    if "edited_at" not in comment_columns:
-        cursor.execute("ALTER TABLE comments ADD COLUMN edited_at TIMESTAMP DEFAULT NULL")
-
-    cursor.execute("PRAGMA table_info(users)")
-    user_columns = [column[1] for column in cursor.fetchall()]
-    if "profile_pic" not in user_columns:
-        cursor.execute("ALTER TABLE users ADD COLUMN profile_pic TEXT")
-    if "bio" not in user_columns:
-        cursor.execute("ALTER TABLE users ADD COLUMN bio TEXT")
-    if "github" not in user_columns:
-        cursor.execute("ALTER TABLE users ADD COLUMN github TEXT")
-    if "linkedin" not in user_columns:
-        cursor.execute("ALTER TABLE users ADD COLUMN linkedin TEXT")
-    if "location" not in user_columns:
-        cursor.execute("ALTER TABLE users ADD COLUMN location TEXT")
-    if "email" not in user_columns:
-        cursor.execute("ALTER TABLE users ADD COLUMN email TEXT")
-
-    if "is_verified" not in user_columns:
-        cursor.execute("ALTER TABLE users ADD COLUMN is_verified INTEGER DEFAULT 0")
-
-    if "verification_token" not in user_columns:
-        cursor.execute("ALTER TABLE users ADD COLUMN verification_token TEXT")
-    if "reset_token" not in user_columns:
-        cursor.execute("ALTER TABLE users ADD COLUMN reset_token TEXT")
-    conn.commit()
-    conn.close()
-
-
-#init_db()
-def create_notification(user_id, actor_id, notification_type, post_id, message):
-    if user_id == actor_id:
-        return
-
-    conn = sqlite3.connect("users.db")
-    cursor = conn.cursor()
-
-    cursor.execute(
-        """
-        INSERT INTO notifications (user_id, actor_id, type, post_id, message)
-        VALUES (?, ?, ?, ?, ?)
-        """,
-        (user_id, actor_id, notification_type, post_id, message)
-    )
-
-    conn.commit()
-    conn.close()
+mail = Mail(app)
 
 @app.context_processor
 def inject_notification_count():
@@ -244,6 +133,16 @@ class Notification(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 with app.app_context():
     db.create_all()
+
+def send_email(to, subject, body):
+    msg = Message(
+        subject,
+        recipients=[to]
+    )
+
+    msg.body = body
+
+    mail.send(msg)
     
 
 
@@ -293,7 +192,11 @@ def register():
             _external=True
         )
 
-        print("Verification link:", verification_link)
+        send_email(
+    email,
+    "Verify Your Email",
+    f"Click the link to verify your account:\n\n{verification_link}"
+)
 
         flash("Registration successful! Please verify your email.", "success")
         return redirect(url_for("login"))
@@ -1129,21 +1032,6 @@ def notifications():
         notifications=notification_data
     )
 
-@app.route("/delete-notification/<int:notification_id>", methods=["POST"])
-@login_required
-def delete_notification(notification_id):
-    conn = sqlite3.connect("users.db")
-    cursor = conn.cursor()
-
-    cursor.execute(
-        "DELETE FROM notifications WHERE id=? AND user_id=?",
-        (notification_id, current_user.id)
-    )
-
-    conn.commit()
-    conn.close()
-
-    return redirect(url_for("notifications"))
 
 @app.route("/edit-profile", methods=["GET", "POST"])
 @login_required
@@ -1247,7 +1135,11 @@ def forgot_password():
                 _external=True
             )
 
-            print("Password reset link:", reset_link)
+            send_email(
+    email,
+    "Reset Your Password",
+    f"Click the link below to reset your password:\n\n{reset_link}"
+)
 
         flash(
             "If this email exists, a password reset link has been generated.",
