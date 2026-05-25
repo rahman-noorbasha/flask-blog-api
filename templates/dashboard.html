@@ -491,6 +491,14 @@
             margin-bottom: 16px;
         }
 
+        .post-actions.is-collapsible {
+            display: none;
+        }
+
+        .post-card.is-actions-open .post-actions.is-collapsible {
+            display: grid;
+        }
+
         .post-actions form {
             margin: 0;
         }
@@ -755,6 +763,14 @@
             color: #3730a3;
         }
 
+        .comment-box .comment-action-btn {
+            display: none;
+        }
+
+        .comment-box.is-actions-open .comment-action-btn {
+            display: inline-flex;
+        }
+
         /* limit visible comments to ~5 items, allow scrolling for the rest */
         .comments-list {
             max-height: 320px;
@@ -902,7 +918,7 @@
                     {% if posts %}
                     <div class="posts-grid">
                         {% for post, like_count, comment_count, comments, is_bookmarked in posts %}
-                        <div class="post-card">
+                        <div class="post-card" data-action-scope="post">
                             <div class="post-header">
                                 <h3 class="post-title">{{ post.title }}</h3>
                                 <div class="post-number">{{ loop.index }}</div>
@@ -939,7 +955,7 @@
                                 <div class="meta-item">💬 {{ comment_count }} comments</div>
                             </div>
 
-                            <div class="post-actions">
+                            <div class="post-actions is-collapsible">
                                 <a href="{{ url_for('edit_post', post_id=post.id) }}" class="edit-btn">Edit</a>
                                 <form method="POST" action="{{ url_for('delete_post', post_id=post.id) }}"
                                     onsubmit="return confirm('Delete this post?');">
@@ -963,7 +979,7 @@
 
                                     {% for comment in comments %}
 
-                                    <div class="comment-box" id="comment-{{ comment.id }}">
+                                    <div class="comment-box" id="comment-{{ comment.id }}" data-action-scope="comment">
                                         <p class="comment-text">
                                             <strong>{{ comment.username }}</strong>
                                             {% if comment.edited_at %}
@@ -1037,6 +1053,39 @@
     </div>
 
     <script>
+        function closeActionMenus(exceptElement = null) {
+            document.querySelectorAll(".is-actions-open").forEach((element) => {
+                if (!exceptElement || element !== exceptElement) {
+                    element.classList.remove("is-actions-open");
+                }
+            });
+        }
+
+        document.addEventListener("click", (event) => {
+            const commentBox = event.target.closest(".comment-box");
+
+            if (commentBox) {
+                closeActionMenus(commentBox);
+                commentBox.classList.add("is-actions-open");
+                return;
+            }
+
+            if (event.target.closest("a, button, input, textarea, select, form")) {
+                closeActionMenus();
+                return;
+            }
+
+            const postCard = event.target.closest(".post-card");
+
+            if (postCard) {
+                closeActionMenus(postCard);
+                postCard.classList.add("is-actions-open");
+                return;
+            }
+
+            closeActionMenus();
+        });
+
         function copyLink(link) {
             navigator.clipboard.writeText(link);
             alert("Post link copied!");
@@ -1135,7 +1184,38 @@
                 });
                 if (!response.ok) throw new Error(response.statusText || "Request failed");
                 const data = await response.json();
-                if (data.success) location.reload();
+
+                if (data.success) {
+                    const commentBox = document.createElement("div");
+                    const commentText = document.createElement("p");
+                    const author = document.createElement("strong");
+                    const lineBreak = document.createElement("br");
+                    const content = document.createElement("span");
+                    const editButton = document.createElement("button");
+                    const deleteButton = document.createElement("button");
+
+                    commentBox.className = "comment-box";
+                    commentBox.id = `comment-${data.comment_id}`;
+                    commentBox.dataset.actionScope = "comment";
+                    commentText.className = "comment-text";
+                    author.textContent = data.username;
+                    content.className = "comment-content";
+                    content.textContent = data.comment;
+                    editButton.className = "comment-action-btn";
+                    editButton.type = "button";
+                    editButton.textContent = "Edit";
+                    editButton.onclick = () => editComment(data.comment_id);
+                    deleteButton.className = "comment-action-btn";
+                    deleteButton.type = "button";
+                    deleteButton.textContent = "Delete";
+                    deleteButton.onclick = () => deleteComment(data.comment_id, postId);
+
+                    commentText.append(author, lineBreak, content);
+                    commentBox.append(commentText, editButton, deleteButton);
+                    document.getElementById(`comments-list-${postId}`).prepend(commentBox);
+                    document.getElementById(`comment-count-${postId}`).innerText = data.comment_count;
+                    input.value = "";
+                }
             } catch (err) {
                 alert("Error: " + err.message);
             }

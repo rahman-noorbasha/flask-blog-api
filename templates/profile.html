@@ -335,6 +335,14 @@
             padding: 0.35rem 0.6rem;
         }
 
+        .comment-box .comment-action-btn {
+            display: none;
+        }
+
+        .comment-box.is-actions-open .comment-action-btn {
+            display: inline-flex;
+        }
+
         .comment-form {
             display: flex;
             gap: 10px;
@@ -428,7 +436,7 @@
             </div>
             <div class="summary-card">
                 <span>Likes Received</span>
-                <strong>{{ total_likes }}</strong>
+                <strong id="total-likes-received">{{ total_likes }}</strong>
             </div>
         </section>
 
@@ -495,12 +503,12 @@
                 <div class="post-meta">
                     <span>Posted: {{ post.created_at }}</span>
                     <span>By {{ user[1] }}</span>
-                    <span id="like-count-{{ post.id }}">{{ post.like_count }} likes</span>
+                    <span id="like-count-{{ post.id }}">❤️ {{ post.like_count }} likes</span>
                     <span id="comment-count-{{ post.id }}">{{ post.comment_count }} comments</span>
                 </div>
 
                 <div class="post-actions">
-                    <button class="action-btn" type="button" onclick="likePost({{ post.id }})">Like</button>
+                    <button class="action-btn" type="button" onclick="likePost({{ post.id }})">❤️</button>
                     <button class="action-btn" type="button" onclick="focusComment({{ post.id }})">Comment</button>
                     <button class="action-btn" type="button"
                         data-link="{{ url_for('view_post', post_id=post.id, _external=True) }}"
@@ -513,7 +521,7 @@
                 <section class="comment-section">
                     <div class="comments-list" id="comments-list-{{ post.id }}">
                         {% for comment in post.comments %}
-                        <div class="comment-box" id="comment-{{ comment.id }}">
+                        <div class="comment-box" id="comment-{{ comment.id }}" data-action-scope="comment">
                             <div class="comment-text">
                                 <span class="comment-author">{{ comment.username }}</span>
                                 {% if comment.edited_at %}
@@ -549,12 +557,40 @@
     </main>
 
     <script>
+        function closeCommentActionMenus(exceptElement = null) {
+            document.querySelectorAll(".comment-box.is-actions-open").forEach((element) => {
+                if (!exceptElement || element !== exceptElement) {
+                    element.classList.remove("is-actions-open");
+                }
+            });
+        }
+
+        document.addEventListener("click", (event) => {
+            const commentBox = event.target.closest(".comment-box");
+
+            if (commentBox) {
+                closeCommentActionMenus(commentBox);
+                commentBox.classList.add("is-actions-open");
+                return;
+            }
+
+            closeCommentActionMenus();
+        });
+
         async function likePost(postId) {
+            const likeCountElement = document.getElementById(`like-count-${postId}`);
+            const oldPostLikes = parseInt(likeCountElement.innerText.replace(/\D/g, ""), 10) || 0;
             const response = await fetch(`/like/${postId}`, { method: "POST" });
             const data = await response.json();
 
             if (data.success) {
-                document.getElementById(`like-count-${postId}`).innerText = `${data.likes} likes`;
+                likeCountElement.innerText = `❤️ ${data.likes} likes`;
+
+                const totalLikesElement = document.getElementById("total-likes-received");
+                if (totalLikesElement) {
+                    const oldTotalLikes = parseInt(totalLikesElement.innerText, 10) || 0;
+                    totalLikesElement.innerText = oldTotalLikes + (data.likes - oldPostLikes);
+                }
             }
         }
 
@@ -580,7 +616,35 @@
             const data = await response.json();
 
             if (data.success) {
-                location.reload();
+                const commentBox = document.createElement("div");
+                const commentText = document.createElement("div");
+                const author = document.createElement("span");
+                const content = document.createElement("span");
+                const editButton = document.createElement("button");
+                const deleteButton = document.createElement("button");
+
+                commentBox.className = "comment-box";
+                commentBox.id = `comment-${data.comment_id}`;
+                commentBox.dataset.actionScope = "comment";
+                commentText.className = "comment-text";
+                author.className = "comment-author";
+                author.textContent = data.username;
+                content.className = "comment-content";
+                content.textContent = data.comment;
+                editButton.className = "comment-action-btn";
+                editButton.type = "button";
+                editButton.textContent = "Edit";
+                editButton.onclick = () => editComment(data.comment_id);
+                deleteButton.className = "comment-action-btn";
+                deleteButton.type = "button";
+                deleteButton.textContent = "Delete";
+                deleteButton.onclick = () => deleteComment(data.comment_id, postId);
+
+                commentText.append(author, content);
+                commentBox.append(commentText, editButton, deleteButton);
+                document.getElementById(`comments-list-${postId}`).prepend(commentBox);
+                document.getElementById(`comment-count-${postId}`).innerText = `${data.comment_count} comments`;
+                input.value = "";
             }
         }
 

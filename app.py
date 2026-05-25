@@ -200,6 +200,50 @@ class User(db.Model, UserMixin):
     
 with app.app_context():
     db.create_all()
+
+class Post(db.Model):
+    __tablename__ = "posts"
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.Text)
+    content = db.Column(db.Text)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    attachment = db.Column(db.Text)
+class Like(db.Model):
+    __tablename__ = "likes"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    post_id = db.Column(db.Integer, db.ForeignKey("posts.id"))
+
+
+class Comment(db.Model):
+    __tablename__ = "comments"
+
+    id = db.Column(db.Integer, primary_key=True)
+    content = db.Column(db.Text)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    post_id = db.Column(db.Integer, db.ForeignKey("posts.id"))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    edited_at = db.Column(db.DateTime, nullable=True)
+
+
+class Bookmark(db.Model):
+    __tablename__ = "bookmarks"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    post_id = db.Column(db.Integer, db.ForeignKey("posts.id"))
+
+class Follower(db.Model):
+    __tablename__ = "followers"
+
+    id = db.Column(db.Integer, primary_key=True)
+    follower_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    following_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+with app.app_context():
+    db.create_all()
     
 
 
@@ -292,151 +336,90 @@ def login():
 @app.route("/dashboard")
 @login_required
 def dashboard():
-    search = request.args.get('search', '')
+    search = request.args.get("search", "")
     page = request.args.get("page", 1, type=int)
     per_page = 5
 
-    conn = sqlite3.connect("users.db")
-    cursor = conn.cursor()
+    query = Post.query.filter_by(user_id=current_user.id)
 
     if search:
-        cursor.execute(
-            "SELECT COUNT(*) FROM posts WHERE user_id=? AND (title LIKE ? OR content LIKE ?)",
-            (
-                current_user.id,
-                f'%{search}%',
-                f'%{search}%'
-            )
-        )
-        total_posts = cursor.fetchone()[0]
-        cursor.execute(
-            "SELECT COUNT(*) FROM likes WHERE post_id IN (SELECT id FROM posts WHERE user_id=? AND (title LIKE ? OR content LIKE ?))",
-            (
-                current_user.id,
-                f'%{search}%',
-                f'%{search}%'
-            )
-        )
-        total_likes = cursor.fetchone()[0]
-        cursor.execute(
-            "SELECT COUNT(*) FROM comments WHERE post_id IN (SELECT id FROM posts WHERE user_id=? AND (title LIKE ? OR content LIKE ?))",
-            (
-                current_user.id,
-                f'%{search}%',
-                f'%{search}%'
-            )
-        )
-        total_comments = cursor.fetchone()[0]
-        total_pages = max(1, (total_posts + per_page - 1) // per_page)
-
-        if page < 1:
-            page = 1
-        if page > total_pages:
-            page = total_pages
-
-        offset = (page - 1) * per_page
-        cursor.execute(
-            "SELECT * FROM posts WHERE user_id = ? AND (title LIKE ? OR content LIKE ?) ORDER BY created_at DESC LIMIT ? OFFSET ?",
-            (
-                current_user.id,
-                f'%{search}%',
-                f'%{search}%',
-                per_page,
-                offset
-            )
-        )
-    else:
-        cursor.execute(
-            "SELECT COUNT(*) FROM posts WHERE user_id=?",
-            (current_user.id,)
-        )
-        total_posts = cursor.fetchone()[0]
-        cursor.execute(
-            "SELECT COUNT(*) FROM likes WHERE post_id IN (SELECT id FROM posts WHERE user_id=?)",
-            (current_user.id,)
-        )
-        total_likes = cursor.fetchone()[0]
-        cursor.execute(
-            "SELECT COUNT(*) FROM comments WHERE post_id IN (SELECT id FROM posts WHERE user_id=?)",
-            (current_user.id,)
-        )
-        total_comments = cursor.fetchone()[0]
-        total_pages = max(1, (total_posts + per_page - 1) // per_page)
-
-        if page < 1:
-            page = 1
-        if page > total_pages:
-            page = total_pages
-
-        offset = (page - 1) * per_page
-        cursor.execute(
-            "SELECT * FROM posts WHERE user_id=? ORDER BY created_at DESC LIMIT ? OFFSET ?",
-            (current_user.id, per_page, offset)
+        query = query.filter(
+            (Post.title.like(f"%{search}%")) |
+            (Post.content.like(f"%{search}%"))
         )
 
-    posts = cursor.fetchall()
+    total_posts = query.count()
+
+    total_likes = 0
+    total_comments = 0
+
+    total_pages = max(1, (total_posts + per_page - 1) // per_page)
+
+    if page < 1:
+        page = 1
+
+    if page > total_pages:
+        page = total_pages
+
+    offset = (page - 1) * per_page
+
+    posts = query.order_by(Post.created_at.desc()) \
+                 .offset(offset) \
+                 .limit(per_page) \
+                 .all()
+
     post_data = []
 
     for post in posts:
-        cursor.execute(
-            "SELECT COUNT(*) FROM likes WHERE post_id=?",
-            (post[0],)
-        )
-        like_count = cursor.fetchone()[0]
-        cursor.execute(
-            "SELECT COUNT(*) FROM comments WHERE post_id=?",
-            (post[0],)
-        )
-        comment_count = cursor.fetchone()[0]
-        cursor.execute(
-            """
-            SELECT comments.content, users.username
-            FROM comments
-            JOIN users ON comments.user_id = users.id
-            WHERE comments.post_id=?
-            ORDER BY comments.created_at DESC
-            """,
-            (post[0],)
-        )
-        cursor.execute(
-            """
-            SELECT comments.id, comments.content, comments.user_id, users.username, comments.edited_at
-            FROM comments
-            JOIN users ON comments.user_id = users.id
-            WHERE comments.post_id=?
-            ORDER BY comments.created_at DESC
-            """,
-            (post[0],)
-        )
-        raw_comments = cursor.fetchall()
-        
-        # convert post tuple and comments to dicts for easier template use
-        post_dict = {
-            "id": post[0],
-            "title": post[1],
-            "content": post[2],
-            "user_id": post[3],
-            "created_at": post[4],
-            "attachment": post[5],
-            "is_image_attachment": bool(post[5]) and post[5].lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".webp"))
-        }
+        like_count = Like.query.filter_by(post_id=post.id).count()
+        comment_count = Comment.query.filter_by(post_id=post.id).count()
+
+        raw_comments = Comment.query.filter_by(post_id=post.id) \
+                                    .order_by(Comment.created_at.desc()) \
+                                    .all()
 
         comments = []
+
         for c in raw_comments:
+            comment_user = User.query.get(c.user_id)
+
             comments.append({
-                "id": c[0],
-                "content": c[1],
-                "user_id": c[2],
-                "username": c[3],
-                "edited_at": c[4]
+                "id": c.id,
+                "content": c.content,
+                "user_id": c.user_id,
+                "username": comment_user.username if comment_user else "Unknown",
+                "edited_at": c.edited_at
             })
-        cursor.execute(
-        "SELECT * FROM bookmarks WHERE user_id=? AND post_id=?",
-        (current_user.id, post_dict["id"])
-)
-        is_bookmarked = cursor.fetchone() is not None
-        post_data.append((post_dict, like_count, comment_count, comments, is_bookmarked))
-    conn.close()
+
+        post_dict = {
+            "id": post.id,
+            "title": post.title,
+            "content": post.content,
+            "user_id": post.user_id,
+            "created_at": post.created_at,
+            "attachment": post.attachment,
+            "is_image_attachment": bool(post.attachment) and post.attachment.lower().endswith(
+                (".png", ".jpg", ".jpeg", ".gif", ".webp")
+            )
+        }
+
+        is_bookmarked = Bookmark.query.filter_by(
+            user_id=current_user.id,
+            post_id=post.id
+        ).first() is not None
+
+        post_data.append(
+            (
+                post_dict,
+                like_count,
+                comment_count,
+                comments,
+                is_bookmarked
+            )
+        )
+
+        total_likes += like_count
+        total_comments += comment_count
 
     return render_template(
         "dashboard.html",
@@ -448,7 +431,6 @@ def dashboard():
         total_pages=total_pages,
         page=page
     )
-
 
 @app.route("/create", methods=["GET", "POST"])
 @login_required
@@ -462,19 +444,18 @@ def create():
         if file and getattr(file, 'filename', None):
             filename = secure_filename(file.filename)
             file.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
-        conn = sqlite3.connect("users.db")
-        cursor = conn.cursor()
+        
+        
 
-        cursor.execute(
-    """
-    INSERT INTO posts (title, content, user_id, created_at, attachment)
-    VALUES (?, ?, ?, datetime('now'), ?)
-    """,
-    (title, content, current_user.id, filename)
-)
+        new_post = Post(
+        title=title,
+        content=content,
+        user_id=current_user.id,
+        attachment=filename
+        )
 
-        conn.commit()
-        conn.close()
+        db.session.add(new_post)
+        db.session.commit()
 
         flash("Post created successfully.", "success")
         return redirect(url_for("dashboard"), code=303)
@@ -495,17 +476,12 @@ def create():
 @app.route("/edit/<int:post_id>", methods=["GET", "POST"])
 @login_required
 def edit_post(post_id):
-    conn = sqlite3.connect("users.db")
-    cursor = conn.cursor()
-
-    cursor.execute(
-        "SELECT * FROM posts WHERE id=? AND user_id=?",
-        (post_id, current_user.id)
-    )
-    post = cursor.fetchone()
+    post = Post.query.filter_by(
+        id=post_id,
+        user_id=current_user.id
+    ).first()
 
     if not post:
-        conn.close()
         flash("Post not found or access denied.", "error")
         return redirect(url_for("dashboard"))
 
@@ -513,22 +489,22 @@ def edit_post(post_id):
         title = request.form.get("title", "")
         content = request.form.get("content", "")
         file = request.files.get("attachment")
-        filename = post[5]
-        if file and getattr(file, 'filename', None):
+
+        filename = post.attachment
+
+        if file and getattr(file, "filename", None):
             filename = secure_filename(file.filename)
             file.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
-        
-        cursor.execute(
-            "UPDATE posts SET title=?, content=?, attachment=? WHERE id=? AND user_id=?",
-            (title, content, filename, post_id, current_user.id,)
-        )
-        conn.commit()
-        conn.close()
+
+        post.title = title
+        post.content = content
+        post.attachment = filename
+
+        db.session.commit()
 
         flash("Post updated successfully.", "success")
         return redirect(url_for("dashboard"), code=303)
 
-    conn.close()
     return render_template(
         "create_post.html",
         action_url=url_for("edit_post", post_id=post_id),
@@ -536,55 +512,29 @@ def edit_post(post_id):
         header_title="Edit Post",
         header_desc="Update your blog post content.",
         btn_text="Save Changes",
-        title_value=post[1],
-        content_value=post[2],
+        title_value=post.title,
+        content_value=post.content,
         form_method="POST"
     )
-
 
 @app.route("/delete/<int:post_id>", methods=["POST"])
 @login_required
 def delete_post(post_id):
-    conn = sqlite3.connect("users.db")
-    cursor = conn.cursor()
 
-    cursor.execute(
-        "SELECT id FROM posts WHERE id=? AND user_id=?",
-        (post_id, current_user.id)
-    )
-    post = cursor.fetchone()
+    post = Post.query.filter_by(
+        id=post_id,
+        user_id=current_user.id
+    ).first()
 
     if not post:
-        conn.close()
         flash("Post not found or access denied.", "error")
         return redirect(url_for("dashboard"), code=303)
 
-    cursor.execute(
-        "DELETE FROM likes WHERE post_id=?",
-        (post_id,)
-    )
-    cursor.execute(
-        "DELETE FROM comments WHERE post_id=?",
-        (post_id,)
-    )
-    cursor.execute(
-        "DELETE FROM bookmarks WHERE post_id=?",
-        (post_id,)
-    )
-    cursor.execute(
-        "DELETE FROM notifications WHERE post_id=?",
-        (post_id,)
-    )
-    cursor.execute(
-        "DELETE FROM posts WHERE id=? AND user_id=?",
-        (post_id, current_user.id)
-    )
-    conn.commit()
-    conn.close()
+    db.session.delete(post)
+    db.session.commit()
 
     flash("Post deleted successfully.", "success")
     return redirect(url_for("dashboard"), code=303)
-
 
 @app.route("/logout")
 @login_required
@@ -648,131 +598,78 @@ def delete_account():
     flash("Your account has been deleted successfully.", "success")
 
     return redirect(url_for("login"))
+
 @app.route("/like/<int:post_id>", methods=["POST"])
 @login_required
 def like_post(post_id):
-    conn = sqlite3.connect("users.db")
-    cursor = conn.cursor()
 
-    cursor.execute(
-        "SELECT * FROM likes WHERE user_id=? AND post_id=?",
-        (current_user.id, post_id)
-    )
-    existing_like = cursor.fetchone()
-
-    cursor.execute(
-        "SELECT user_id FROM posts WHERE id=?",
-        (post_id,)
-    )
-    post = cursor.fetchone()
+    post = Post.query.get(post_id)
 
     if not post:
-        conn.close()
-        return jsonify({"success": False, "message": "Post not found"}), 404
+        return jsonify({
+            "success": False,
+            "message": "Post not found"
+        }), 404
 
-    post_owner = post[0]
+    existing_like = Like.query.filter_by(
+        user_id=current_user.id,
+        post_id=post_id
+    ).first()
 
     if existing_like:
-        cursor.execute(
-            "DELETE FROM likes WHERE user_id=? AND post_id=?",
-            (current_user.id, post_id)
-        )
+        db.session.delete(existing_like)
+
     else:
-        cursor.execute(
-            "INSERT INTO likes (user_id, post_id) VALUES (?, ?)",
-            (current_user.id, post_id)
+        new_like = Like(
+            user_id=current_user.id,
+            post_id=post_id
         )
-        if post_owner != current_user.id:
-            cursor.execute(
-                """
-                INSERT INTO notifications (user_id, actor_id, type, post_id, message)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                (
-                    post_owner,
-                    current_user.id,
-                    "like",
-                    post_id,
-                    f"{current_user.username} liked your post"
-                )
-            )
 
-    conn.commit()
-    cursor.execute(
-        "SELECT COUNT(*) FROM likes WHERE post_id=?",
-        (post_id,)
-    )
-    like_count = cursor.fetchone()[0]
+        db.session.add(new_like)
 
-    conn.close()
+    db.session.commit()
+
+    like_count = Like.query.filter_by(post_id=post_id).count()
 
     return jsonify({
         "success": True,
         "likes": like_count
     })
+
 @app.route("/comment/<int:post_id>", methods=["POST"])
 @login_required
 def comment_post(post_id):
     content = request.form.get("comment", "").strip()
 
-    if content:
-        conn = sqlite3.connect("users.db")
-        cursor = conn.cursor()
+    if not content:
+        return jsonify({"success": False})
 
-        cursor.execute(
-            "SELECT user_id FROM posts WHERE id=?",
-            (post_id,)
-        )
-        post = cursor.fetchone()
+    post = Post.query.get(post_id)
 
-        if not post:
-            conn.close()
-            return jsonify({"success": False, "message": "Post not found"}), 404
-
-        cursor.execute(
-            """
-            INSERT INTO comments (content, user_id, post_id)
-            VALUES (?, ?, ?)
-            """,
-            (content, current_user.id, post_id)
-        )
-        comment_id = cursor.lastrowid
-
-        post_owner = post[0]
-
-        if post_owner != current_user.id:
-            cursor.execute(
-                """
-                INSERT INTO notifications (user_id, actor_id, type, post_id, message)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                (
-                    post_owner,
-                    current_user.id,
-                    "comment",
-                    post_id,
-                    f"{current_user.username} commented on your post"
-                )
-            )
-
-        conn.commit()
-        cursor.execute(
-            "SELECT COUNT(*) FROM comments WHERE post_id=?",
-            (post_id,)
-        )
-        comment_count = cursor.fetchone()[0]
-
-        conn.close()
-
+    if not post:
         return jsonify({
-            "success": True,
-            "comment_id": comment_id,
-            "username": current_user.username,
-            "comment_count": comment_count,
-            "comment": content
-        })
+            "success": False,
+            "message": "Post not found"
+        }), 404
 
-    return jsonify({"success": False})
+    new_comment = Comment(
+        content=content,
+        user_id=current_user.id,
+        post_id=post_id
+    )
+
+    db.session.add(new_comment)
+    db.session.commit()
+
+    comment_count = Comment.query.filter_by(post_id=post_id).count()
+
+    return jsonify({
+        "success": True,
+        "comment_id": new_comment.id,
+        "username": current_user.username,
+        "comment_count": comment_count,
+        "comment": content
+    })
 
 @app.route("/post/<int:post_id>")
 def view_post(post_id):
@@ -1068,116 +965,102 @@ def edit_comment(comment_id):
     new_content = request.form.get("comment", "").strip()
 
     if not new_content:
-        return jsonify({"success": False, "message": "Comment cannot be empty"})
+        return jsonify({
+            "success": False,
+            "message": "Comment cannot be empty"
+        })
 
-    conn = sqlite3.connect("users.db")
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT user_id FROM comments WHERE id=?", (comment_id,))
-    comment = cursor.fetchone()
+    comment = Comment.query.get(comment_id)
 
     if not comment:
-        conn.close()
-        return jsonify({"success": False, "message": "Comment not found"})
+        return jsonify({
+            "success": False,
+            "message": "Comment not found"
+        })
 
-    if comment[0] != current_user.id:
-        conn.close()
-        return jsonify({"success": False, "message": "Not allowed"})
+    if comment.user_id != current_user.id:
+        return jsonify({
+            "success": False,
+            "message": "Not allowed"
+        })
 
-    cursor.execute(
-        "UPDATE comments SET content=?, edited_at=datetime('now') WHERE id=?",
-        (new_content, comment_id)
-    )
+    comment.content = new_content
+    comment.edited_at = datetime.utcnow()
 
-    conn.commit()
-    conn.close()
+    db.session.commit()
 
     return jsonify({
         "success": True,
         "comment": new_content,
         "edited": True
     })
+
 @app.route("/delete-comment/<int:comment_id>", methods=["POST"])
 @login_required
 def delete_comment(comment_id):
-    conn = sqlite3.connect("users.db")
-    cursor = conn.cursor()
 
-    cursor.execute(
-        """
-        SELECT comments.user_id, posts.user_id, comments.post_id
-        FROM comments
-        JOIN posts ON comments.post_id = posts.id
-        WHERE comments.id=?
-        """,
-        (comment_id,)
-    )
-
-    comment = cursor.fetchone()
+    comment = Comment.query.get(comment_id)
 
     if not comment:
-        conn.close()
         return jsonify({"success": False})
 
-    comment_owner_id = comment[0]
-    post_owner_id = comment[1]
-    post_id = comment[2]
+    post = Post.query.get(comment.post_id)
 
-    if current_user.id == comment_owner_id or current_user.id == post_owner_id:
-        cursor.execute(
-            "DELETE FROM comments WHERE id=?",
-            (comment_id,)
-        )
-        conn.commit()
-        cursor.execute(
-            "SELECT COUNT(*) FROM comments WHERE post_id=?",
-            (post_id,)
-        )
-        comment_count = cursor.fetchone()[0]
+    if not post:
+        return jsonify({"success": False})
 
-        conn.close()
-        return jsonify({"success": True, "comment_count": comment_count})
+    if current_user.id == comment.user_id or current_user.id == post.user_id:
+        post_id = comment.post_id
 
-    conn.close()
+        db.session.delete(comment)
+        db.session.commit()
+
+        comment_count = Comment.query.filter_by(post_id=post_id).count()
+
+        return jsonify({
+            "success": True,
+            "comment_count": comment_count
+        })
+
     return jsonify({"success": False})
+
 @app.route("/bookmark/<int:post_id>", methods=["POST"])
 @login_required
 def bookmark_post(post_id):
-    conn = sqlite3.connect("users.db")
-    cursor = conn.cursor()
 
-    cursor.execute("SELECT id FROM posts WHERE id=?", (post_id,))
-    if not cursor.fetchone():
-        conn.close()
-        return {"success": False, "message": "Post not found"}, 404
+    post = Post.query.get(post_id)
 
-    cursor.execute(
-        "SELECT * FROM bookmarks WHERE user_id=? AND post_id=?",
-        (current_user.id, post_id)
-    )
+    if not post:
+        return {
+            "success": False,
+            "message": "Post not found"
+        }, 404
 
-    existing_bookmark = cursor.fetchone()
+    existing_bookmark = Bookmark.query.filter_by(
+        user_id=current_user.id,
+        post_id=post_id
+    ).first()
 
     if existing_bookmark:
-        cursor.execute(
-            "DELETE FROM bookmarks WHERE user_id=? AND post_id=?",
-            (current_user.id, post_id)
-        )
+        db.session.delete(existing_bookmark)
         bookmarked = False
+
     else:
-        cursor.execute(
-            "INSERT INTO bookmarks (user_id, post_id) VALUES (?, ?)",
-            (current_user.id, post_id)
+        new_bookmark = Bookmark(
+            user_id=current_user.id,
+            post_id=post_id
         )
+
+        db.session.add(new_bookmark)
         bookmarked = True
 
-    conn.commit()
-    conn.close()
+    db.session.commit()
 
     return {
         "success": True,
         "bookmarked": bookmarked
     }
+
 @app.route("/upload-profile-pic", methods=["POST"])
 @login_required
 def upload_profile_pic():
@@ -1187,16 +1070,8 @@ def upload_profile_pic():
         filename = secure_filename(file.filename)
         file.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
 
-        conn = sqlite3.connect("users.db")
-        cursor = conn.cursor()
-
-        cursor.execute(
-            "UPDATE users SET profile_pic=? WHERE id=?",
-            (filename, current_user.id)
-        )
-
-        conn.commit()
-        conn.close()
+        current_user.profile_pic = filename
+        db.session.commit()
 
         flash("Profile picture updated successfully.", "success")
 
@@ -1208,63 +1083,41 @@ def follow_user(user_id):
     if user_id == current_user.id:
         return {"success": False, "message": "You cannot follow yourself"}
 
-    conn = sqlite3.connect("users.db")
-    cursor = conn.cursor()
+    user_to_follow = User.query.get(user_id)
 
-    cursor.execute("SELECT id FROM users WHERE id=?", (user_id,))
-    if not cursor.fetchone():
-        conn.close()
+    if not user_to_follow:
         return {"success": False, "message": "User not found"}, 404
 
-    cursor.execute(
-        "SELECT * FROM followers WHERE follower_id=? AND following_id=?",
-        (current_user.id, user_id)
-    )
-
-    existing_follow = cursor.fetchone()
+    existing_follow = Follower.query.filter_by(
+        follower_id=current_user.id,
+        following_id=user_id
+    ).first()
 
     if existing_follow:
-        cursor.execute(
-            "DELETE FROM followers WHERE follower_id=? AND following_id=?",
-            (current_user.id, user_id)
-        )
+        db.session.delete(existing_follow)
         following = False
+
     else:
-        cursor.execute(
-            "INSERT INTO followers (follower_id, following_id) VALUES (?, ?)",
-            (current_user.id, user_id)
+        new_follow = Follower(
+            follower_id=current_user.id,
+            following_id=user_id
         )
+
+        db.session.add(new_follow)
         following = True
 
-        cursor.execute(
-    """
-    INSERT INTO notifications (user_id, actor_id, type, post_id, message)
-    VALUES (?, ?, ?, ?, ?)
-    """,
-    (
-        user_id,
-        current_user.id,
-        "follow",
-        None,
-        f"{current_user.username} started following you"
-    )
-)
+    db.session.commit()
 
-    conn.commit()
-
-    cursor.execute(
-        "SELECT COUNT(*) FROM followers WHERE following_id=?",
-        (user_id,)
-    )
-    followers_count = cursor.fetchone()[0]
-
-    conn.close()
+    followers_count = Follower.query.filter_by(
+        following_id=user_id
+    ).count()
 
     return {
         "success": True,
         "following": following,
         "followers_count": followers_count
     }
+
 @app.route("/notifications")
 @login_required
 def notifications():
@@ -1317,32 +1170,14 @@ def delete_notification(notification_id):
 @app.route("/edit-profile", methods=["GET", "POST"])
 @login_required
 def edit_profile():
-    conn = sqlite3.connect("users.db")
-    cursor = conn.cursor()
 
     if request.method == "POST":
-        bio = request.form.get("bio")
-        github = request.form.get("github")
-        linkedin = request.form.get("linkedin")
-        location = request.form.get("location")
+        current_user.bio = request.form.get("bio")
+        current_user.github = request.form.get("github")
+        current_user.linkedin = request.form.get("linkedin")
+        current_user.location = request.form.get("location")
 
-        cursor.execute(
-            """
-            UPDATE users
-            SET bio=?, github=?, linkedin=?, location=?
-            WHERE id=?
-            """,
-            (
-                bio,
-                github,
-                linkedin,
-                location,
-                current_user.id
-            )
-        )
-
-        conn.commit()
-        conn.close()
+        db.session.commit()
 
         flash("Profile updated successfully", "success")
 
@@ -1353,18 +1188,9 @@ def edit_profile():
             )
         )
 
-    cursor.execute(
-        "SELECT * FROM users WHERE id=?",
-        (current_user.id,)
-    )
-
-    user = cursor.fetchone()
-
-    conn.close()
-
     return render_template(
         "edit_profile.html",
-        user=user
+        user=current_user
     )
 
 @app.route("/verify-email/<token>")
@@ -1387,91 +1213,6 @@ def verify_email(token):
     flash("Invalid or expired verification link.", "error")
     return redirect(url_for("login"))
 
-@app.route("/forgot-password", methods=["GET", "POST"])
-def forgot_password():
-    if request.method == "POST":
-        email = request.form.get("email", "")
-
-        print("EMAIL ENTERED:", email)
-
-        conn = sqlite3.connect("users.db")
-        cursor = conn.cursor()
-
-        cursor.execute(
-            "SELECT id, username, email FROM users WHERE email=?",
-            (email,)
-        )
-
-        user = cursor.fetchone()
-
-        print("USER FOUND:", user)
-
-        if user:
-            reset_token = secrets.token_hex(16)
-
-            cursor.execute(
-                "UPDATE users SET reset_token=? WHERE id=?",
-                (reset_token, user[0])
-            )
-
-            conn.commit()
-
-            reset_link = url_for(
-                "reset_password",
-                token=reset_token,
-                _external=True
-            )
-
-            print("Password reset link:", reset_link)
-
-        conn.close()
-
-        flash(
-            "If this email exists, a password reset link has been generated.",
-            "success"
-        )
-
-        return redirect(url_for("login"))
-
-    return render_template("forgot_password.html")
-@app.route("/reset-password/<token>", methods=["GET", "POST"])
-def reset_password(token):
-    conn = sqlite3.connect("users.db")
-    cursor = conn.cursor()
-
-    cursor.execute(
-        "SELECT id FROM users WHERE reset_token=?",
-        (token,)
-    )
-
-    user = cursor.fetchone()
-
-    if not user:
-        conn.close()
-        flash("Invalid or expired reset link.", "error")
-        return redirect(url_for("login"))
-
-    if request.method == "POST":
-        new_password = request.form.get("password")
-        hashed_password = generate_password_hash(new_password)
-
-        cursor.execute(
-            """
-            UPDATE users
-            SET password=?, reset_token=NULL
-            WHERE id=?
-            """,
-            (hashed_password, user[0])
-        )
-
-        conn.commit()
-        conn.close()
-
-        flash("Password reset successful. Please login.", "success")
-        return redirect(url_for("login"))
-
-    conn.close()
-    return render_template("reset_password.html")
 
 @app.route("/resend-verification", methods=["POST"])
 def resend_verification():
@@ -1503,6 +1244,63 @@ def resend_verification():
 
     flash("New verification link generated. Check terminal for now.", "success")
     return redirect(url_for("login"))
+
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    if request.method == "POST":
+        email = request.form.get("email", "")
+
+        print("EMAIL ENTERED:", email)
+
+        user = User.query.filter_by(email=email).first()
+
+        print("USER FOUND:", user)
+
+        if user:
+            reset_token = secrets.token_hex(16)
+
+            user.reset_token = reset_token
+
+            db.session.commit()
+
+            reset_link = url_for(
+                "reset_password",
+                token=reset_token,
+                _external=True
+            )
+
+            print("Password reset link:", reset_link)
+
+        flash(
+            "If this email exists, a password reset link has been generated.",
+            "success"
+        )
+
+        return redirect(url_for("login"))
+
+    return render_template("forgot_password.html")
+
+@app.route("/reset-password/<token>", methods=["GET", "POST"])
+def reset_password(token):
+
+    user = User.query.filter_by(reset_token=token).first()
+
+    if not user:
+        flash("Invalid or expired reset link.", "error")
+        return redirect(url_for("login"))
+
+    if request.method == "POST":
+        new_password = request.form.get("password")
+
+        user.password = generate_password_hash(new_password)
+        user.reset_token = None
+
+        db.session.commit()
+
+        flash("Password reset successful. Please login.", "success")
+        return redirect(url_for("login"))
+
+    return render_template("reset_password.html")
 
 if __name__ == "__main__":
     app.run(debug=True)
