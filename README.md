@@ -113,18 +113,18 @@ This project helped me understand how real-world web applications are structured
 ---------------
 Through this project, I learned:
 
-How to build a full-stack Flask application
-How user authentication works
-How to secure passwords using hashing
-How to use Flask-Login for session management
-How to design and manage database models
-How to migrate from SQLite to PostgreSQL
-How to create social features like likes, comments, bookmarks, followers, and notifications
-How to handle file uploads
-How email verification and forgot password flows work
-How to deploy a Flask app on Render
-How to debug real-world errors step by step
-How to maintain project code using Git and GitHub
+- How to build a full-stack Flask application
+- How user authentication works
+- How to secure passwords using hashing
+- How to use Flask-Login for session management
+- How to design and manage database models
+- How to migrate from SQLite to PostgreSQL
+- How to create social features like likes, comments, bookmarks, followers, and notifications
+- How to handle file uploads
+- How email verification and forgot password flows work
+- How to deploy a Flask app on Render
+- How to debug real-world errors step by step
+- How to maintain project code using Git and GitHub
 -------------------
 Author
 
