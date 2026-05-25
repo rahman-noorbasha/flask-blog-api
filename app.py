@@ -165,22 +165,14 @@ def create_notification(user_id, actor_id, notification_type, post_id, message):
 @app.context_processor
 def inject_notification_count():
     if current_user.is_authenticated:
-        conn = sqlite3.connect("users.db")
-        cursor = conn.cursor()
-
-        cursor.execute(
-            "SELECT COUNT(*) FROM notifications WHERE user_id=? AND is_read=0",
-            (current_user.id,)
-        )
-
-        unread_notifications = cursor.fetchone()[0]
-
-        conn.close()
+        unread_notifications = Notification.query.filter_by(
+            user_id=current_user.id,
+            is_read=0
+        ).count()
 
         return dict(unread_notifications=unread_notifications)
 
     return dict(unread_notifications=0)
-
 # ---------------- USER CLASS ----------------
 class User(db.Model, UserMixin):
     __tablename__ = "users"
@@ -198,9 +190,6 @@ class User(db.Model, UserMixin):
     verification_token = db.Column(db.Text)
     reset_token = db.Column(db.Text)
     
-with app.app_context():
-    db.create_all()
-
 class Post(db.Model):
     __tablename__ = "posts"
 
@@ -242,6 +231,17 @@ class Follower(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     follower_id = db.Column(db.Integer, db.ForeignKey("users.id"))
     following_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+class Notification(db.Model):
+    __tablename__ = "notifications"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    actor_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    type = db.Column(db.Text)
+    post_id = db.Column(db.Integer, nullable=True)
+    message = db.Column(db.Text)
+    is_read = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 with app.app_context():
     db.create_all()
     
@@ -541,69 +541,53 @@ def delete_post(post_id):
 def logout():
     logout_user()
     return redirect(url_for("login"))
+
 @app.route("/delete-account", methods=["POST"])
 @login_required
 def delete_account():
-    conn = sqlite3.connect("users.db")
-    cursor = conn.cursor()
+    user_id = current_user.id
 
-    cursor.execute(
-        "SELECT id FROM posts WHERE user_id=?",
-        (current_user.id,)
-    )
-    post_ids = [row[0] for row in cursor.fetchall()]
+    user_posts = Post.query.filter_by(user_id=user_id).all()
+    post_ids = [post.id for post in user_posts]
 
     if post_ids:
-        placeholders = ",".join("?" for _ in post_ids)
-        cursor.execute(f"DELETE FROM likes WHERE post_id IN ({placeholders})", post_ids)
-        cursor.execute(f"DELETE FROM comments WHERE post_id IN ({placeholders})", post_ids)
-        cursor.execute(f"DELETE FROM bookmarks WHERE post_id IN ({placeholders})", post_ids)
-        cursor.execute(f"DELETE FROM notifications WHERE post_id IN ({placeholders})", post_ids)
+        Like.query.filter(Like.post_id.in_(post_ids)).delete(synchronize_session=False)
+        Comment.query.filter(Comment.post_id.in_(post_ids)).delete(synchronize_session=False)
+        Bookmark.query.filter(Bookmark.post_id.in_(post_ids)).delete(synchronize_session=False)
+        Notification.query.filter(Notification.post_id.in_(post_ids)).delete(synchronize_session=False)
 
-    cursor.execute(
-        "DELETE FROM likes WHERE user_id=?",
-        (current_user.id,)
-    )
-    cursor.execute(
-        "DELETE FROM comments WHERE user_id=?",
-        (current_user.id,)
-    )
-    cursor.execute(
-        "DELETE FROM bookmarks WHERE user_id=?",
-        (current_user.id,)
-    )
-    cursor.execute(
-        "DELETE FROM followers WHERE follower_id=? OR following_id=?",
-        (current_user.id, current_user.id)
-    )
-    cursor.execute(
-        "DELETE FROM notifications WHERE user_id=? OR actor_id=?",
-        (current_user.id, current_user.id)
-    )
+    Like.query.filter_by(user_id=user_id).delete()
+    Comment.query.filter_by(user_id=user_id).delete()
+    Bookmark.query.filter_by(user_id=user_id).delete()
 
-    cursor.execute(
-        "DELETE FROM posts WHERE user_id=?",
-        (current_user.id,)
-    )
+    Follower.query.filter(
+        (Follower.follower_id == user_id) |
+        (Follower.following_id == user_id)
+    ).delete(synchronize_session=False)
 
-    cursor.execute(
-        "DELETE FROM users WHERE id=?",
-        (current_user.id,)
-    )
+    Notification.query.filter(
+        (Notification.user_id == user_id) |
+        (Notification.actor_id == user_id)
+    ).delete(synchronize_session=False)
 
-    conn.commit()
-    conn.close()
+    Post.query.filter_by(user_id=user_id).delete()
+
+    user = db.session.get(User, user_id)
 
     logout_user()
-    flash("Your account has been deleted successfully.", "success")
 
+    if user:
+        db.session.delete(user)
+
+    db.session.commit()
+
+    flash("Your account has been deleted successfully.", "success")
     return redirect(url_for("login"))
 
 @app.route("/like/<int:post_id>", methods=["POST"])
 @login_required
 def like_post(post_id):
-
-    post = Post.query.get(post_id)
+    post = db.session.get(Post, post_id)
 
     if not post:
         return jsonify({
@@ -618,14 +602,22 @@ def like_post(post_id):
 
     if existing_like:
         db.session.delete(existing_like)
-
     else:
         new_like = Like(
             user_id=current_user.id,
             post_id=post_id
         )
-
         db.session.add(new_like)
+
+        if post.user_id != current_user.id:
+            new_notification = Notification(
+                user_id=post.user_id,
+                actor_id=current_user.id,
+                type="like",
+                post_id=post_id,
+                message=f"{current_user.username} liked your post"
+            )
+            db.session.add(new_notification)
 
     db.session.commit()
 
@@ -659,6 +651,16 @@ def comment_post(post_id):
     )
 
     db.session.add(new_comment)
+    if post.user_id != current_user.id:
+        new_notification = Notification(
+            user_id=post.user_id,
+            actor_id=current_user.id,
+            type="comment",
+            post_id=post_id,
+            message=f"{current_user.username} commented on your post"
+    )
+
+        db.session.add(new_notification)
     db.session.commit()
 
     comment_count = Comment.query.filter_by(post_id=post_id).count()
@@ -673,102 +675,91 @@ def comment_post(post_id):
 
 @app.route("/post/<int:post_id>")
 def view_post(post_id):
-    conn = sqlite3.connect("users.db")
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT * FROM posts WHERE id=?", (post_id,))
-    post = cursor.fetchone()
-
-    conn.close()
+    post = db.session.get(Post, post_id)
 
     if not post:
         flash("Post not found", "error")
         return redirect(url_for("dashboard"))
 
     return render_template("view_post.html", post=post)
+
 @app.route("/feed")
 @login_required
 def feed():
-    conn = sqlite3.connect("users.db")
-    cursor = conn.cursor()
-    cursor.execute("""
-    SELECT posts.id,
-           posts.title,
-           posts.content,
-           posts.user_id,
-           posts.created_at,
-           posts.attachment,
-           users.username,
 
-           CASE
-               WHEN posts.user_id IN (
-                   SELECT following_id
-                   FROM followers
-                   WHERE follower_id=?
-               )
-               THEN 1
-               ELSE 0
-           END AS priority
+    followed_users = [
+        f.following_id
+        for f in Follower.query.filter_by(
+            follower_id=current_user.id
+        ).all()
+    ]
 
-    FROM posts
-    JOIN users ON posts.user_id = users.id
+    posts_query = Post.query.order_by(
+        Post.created_at.desc()
+    ).all()
 
-    ORDER BY priority DESC, posts.created_at DESC
-""", (current_user.id,))
-    
-    raw_posts = cursor.fetchall()
     posts = []
-    for p in raw_posts:
-        post_id = p[0]
-        cursor.execute("SELECT COUNT(*) FROM likes WHERE post_id=?", (post_id,))
-        like_count = cursor.fetchone()[0]
-        cursor.execute("SELECT COUNT(*) FROM comments WHERE post_id=?", (post_id,))
-        comment_count = cursor.fetchone()[0]
 
-        # load recent comments for the post
-        cursor.execute(
-            """
-            SELECT comments.id, comments.content, comments.user_id, users.username, comments.edited_at
-            FROM comments
-            JOIN users ON comments.user_id = users.id
-            WHERE comments.post_id=?
-            ORDER BY comments.created_at DESC
-            """,
-            (post_id,)
-        )
-        raw_comments = cursor.fetchall()
+    for post in posts_query:
+
+        post_user = db.session.get(User, post.user_id)
+
+        priority = 1 if post.user_id in followed_users else 0
+
+        like_count = Like.query.filter_by(
+            post_id=post.id
+        ).count()
+
+        comment_count = Comment.query.filter_by(
+            post_id=post.id
+        ).count()
+
+        raw_comments = Comment.query.filter_by(
+            post_id=post.id
+        ).order_by(Comment.created_at.desc()).all()
+
         comments = []
+
         for c in raw_comments:
+
+            comment_user = db.session.get(User, c.user_id)
+
             comments.append({
-                "id": c[0],
-                "content": c[1],
-                "user_id": c[2],
-                "username": c[3],
-                "edited_at": c[4]
+                "id": c.id,
+                "content": c.content,
+                "user_id": c.user_id,
+                "username": comment_user.username if comment_user else "Unknown",
+                "edited_at": c.edited_at
             })
-        cursor.execute(
-        "SELECT * FROM bookmarks WHERE user_id=? AND post_id=?",
-        (current_user.id, post_id,)
-)
-        is_bookmarked = cursor.fetchone() is not None
+
+        is_bookmarked = Bookmark.query.filter_by(
+            user_id=current_user.id,
+            post_id=post.id
+        ).first() is not None
 
         posts.append({
-            "id": p[0],
-            "title": p[1],
-            "content": p[2],
-            "user_id": p[3],
-            "created_at": p[4],
-            "attachment": p[5],
-            "is_image_attachment": bool(p[5]) and p[5].lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".webp")),
-            "username": p[6],
-            "priority": p[7],
+            "id": post.id,
+            "title": post.title,
+            "content": post.content,
+            "user_id": post.user_id,
+            "created_at": post.created_at,
+            "attachment": post.attachment,
+            "is_image_attachment": bool(post.attachment)
+            and post.attachment.lower().endswith(
+                (".png", ".jpg", ".jpeg", ".gif", ".webp")
+            ),
+            "username": post_user.username if post_user else "Unknown",
+            "priority": priority,
             "like_count": like_count,
             "comment_count": comment_count,
             "comments": comments,
             "is_bookmarked": is_bookmarked
         })
 
-    conn.close()
+    posts.sort(
+        key=lambda p: (p["priority"], p["created_at"]),
+        reverse=True
+    )
 
     return render_template(
         "feed.html",
@@ -782,63 +773,64 @@ def feed():
 @app.route("/saved")
 @login_required
 def saved_posts():
-    conn = sqlite3.connect("users.db")
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT posts.id, posts.title, posts.content, posts.user_id, posts.created_at, posts.attachment, users.username
-        FROM bookmarks
-        JOIN posts ON bookmarks.post_id = posts.id
-        JOIN users ON posts.user_id = users.id
-        WHERE bookmarks.user_id = ?
-        ORDER BY bookmarks.id DESC
-    """, (current_user.id,))
 
-    raw_posts = cursor.fetchall()
+    bookmarks = Bookmark.query.filter_by(
+        user_id=current_user.id
+    ).order_by(Bookmark.id.desc()).all()
+
     posts = []
-    for p in raw_posts:
-        post_id = p[0]
-        cursor.execute("SELECT COUNT(*) FROM likes WHERE post_id=?", (post_id,))
-        like_count = cursor.fetchone()[0]
-        cursor.execute("SELECT COUNT(*) FROM comments WHERE post_id=?", (post_id,))
-        comment_count = cursor.fetchone()[0]
 
-        cursor.execute(
-            """
-            SELECT comments.id, comments.content, comments.user_id, users.username, comments.edited_at
-            FROM comments
-            JOIN users ON comments.user_id = users.id
-            WHERE comments.post_id=?
-            ORDER BY comments.created_at DESC
-            """,
-            (post_id,)
-        )
-        raw_comments = cursor.fetchall()
+    for bookmark in bookmarks:
+
+        post = db.session.get(Post, bookmark.post_id)
+
+        if not post:
+            continue
+
+        post_user = db.session.get(User, post.user_id)
+
+        like_count = Like.query.filter_by(
+            post_id=post.id
+        ).count()
+
+        comment_count = Comment.query.filter_by(
+            post_id=post.id
+        ).count()
+
+        raw_comments = Comment.query.filter_by(
+            post_id=post.id
+        ).order_by(Comment.created_at.desc()).all()
+
         comments = []
+
         for c in raw_comments:
+            comment_user = db.session.get(User, c.user_id)
+
             comments.append({
-                "id": c[0],
-                "content": c[1],
-                "user_id": c[2],
-                "username": c[3],
-                "edited_at": c[4]
+                "id": c.id,
+                "content": c.content,
+                "user_id": c.user_id,
+                "username": comment_user.username if comment_user else "Unknown",
+                "edited_at": c.edited_at
             })
 
         posts.append({
-            "id": p[0],
-            "title": p[1],
-            "content": p[2],
-            "user_id": p[3],
-            "created_at": p[4],
-            "attachment": p[5],
-            "is_image_attachment": bool(p[5]) and p[5].lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".webp")),
-            "username": p[6],
+            "id": post.id,
+            "title": post.title,
+            "content": post.content,
+            "user_id": post.user_id,
+            "created_at": post.created_at,
+            "attachment": post.attachment,
+            "is_image_attachment": bool(post.attachment)
+            and post.attachment.lower().endswith(
+                (".png", ".jpg", ".jpeg", ".gif", ".webp")
+            ),
+            "username": post_user.username if post_user else "Unknown",
             "like_count": like_count,
             "comment_count": comment_count,
             "comments": comments,
             "is_bookmarked": True
         })
-
-    conn.close()
 
     return render_template(
         "feed.html",
@@ -848,106 +840,84 @@ def saved_posts():
         empty_message="You have not saved any posts yet. Browse the public feed and tap Save on posts you want to keep.",
         show_saved_link=False
     )
+
 @app.route("/user/<username>")
 @login_required
 def user_profile(username):
-    conn = sqlite3.connect("users.db")
-    cursor = conn.cursor()
 
-    cursor.execute("SELECT * FROM users WHERE username=?", (username,))
-    user = cursor.fetchone()
+    user = User.query.filter_by(username=username).first()
 
     if not user:
-        conn.close()
         flash("User not found", "error")
         return redirect(url_for("feed"))
 
-    cursor.execute(
-        "SELECT COUNT(*) FROM posts WHERE user_id=?",
-        (user[0],)
-    )
-    total_posts = cursor.fetchone()[0]
+    total_posts = Post.query.filter_by(user_id=user.id).count()
 
-    cursor.execute("""
-        SELECT COUNT(*)
-        FROM likes
-        WHERE post_id IN (
-            SELECT id FROM posts WHERE user_id=?
-        )
-    """, (user[0],))
-    total_likes = cursor.fetchone()[0]
-    cursor.execute(
-    "SELECT COUNT(*) FROM followers WHERE following_id=?",
-    (user[0],)
-)
-    followers_count = cursor.fetchone()[0]
+    user_posts = Post.query.filter_by(
+        user_id=user.id
+    ).order_by(Post.created_at.desc()).all()
 
-    cursor.execute(
-    "SELECT COUNT(*) FROM followers WHERE follower_id=?",
-    (user[0],)
-)
-    following_count = cursor.fetchone()[0]
-
-    cursor.execute(
-    "SELECT * FROM followers WHERE follower_id=? AND following_id=?",
-    (current_user.id, user[0])
-)
-    is_following = cursor.fetchone() is not None
-
-    cursor.execute("""
-        SELECT * FROM posts
-        WHERE user_id=?
-        ORDER BY created_at DESC
-    """, (user[0],))
-    raw_posts = cursor.fetchall()
+    total_likes = 0
     posts = []
 
-    for post in raw_posts:
-        post_id = post[0]
-        cursor.execute("SELECT COUNT(*) FROM likes WHERE post_id=?", (post_id,))
-        like_count = cursor.fetchone()[0]
-        cursor.execute("SELECT COUNT(*) FROM comments WHERE post_id=?", (post_id,))
-        comment_count = cursor.fetchone()[0]
-        cursor.execute(
-            """
-            SELECT comments.id, comments.content, comments.user_id, users.username, comments.edited_at
-            FROM comments
-            JOIN users ON comments.user_id = users.id
-            WHERE comments.post_id=?
-            ORDER BY comments.created_at DESC
-            """,
-            (post_id,)
-        )
-        raw_comments = cursor.fetchall()
+    followers_count = Follower.query.filter_by(
+        following_id=user.id
+    ).count()
+
+    following_count = Follower.query.filter_by(
+        follower_id=user.id
+    ).count()
+
+    is_following = Follower.query.filter_by(
+        follower_id=current_user.id,
+        following_id=user.id
+    ).first() is not None
+
+    for post in user_posts:
+
+        like_count = Like.query.filter_by(post_id=post.id).count()
+        comment_count = Comment.query.filter_by(post_id=post.id).count()
+
+        total_likes += like_count
+
+        raw_comments = Comment.query.filter_by(
+            post_id=post.id
+        ).order_by(Comment.created_at.desc()).all()
+
         comments = []
+
         for comment in raw_comments:
+            comment_user = db.session.get(User, comment.user_id)
+
             comments.append({
-                "id": comment[0],
-                "content": comment[1],
-                "user_id": comment[2],
-                "username": comment[3],
-                "edited_at": comment[4]
+                "id": comment.id,
+                "content": comment.content,
+                "user_id": comment.user_id,
+                "username": comment_user.username if comment_user else "Unknown",
+                "edited_at": comment.edited_at
             })
 
-        cursor.execute(
-            "SELECT * FROM bookmarks WHERE user_id=? AND post_id=?",
-            (current_user.id, post_id)
-        )
+        is_bookmarked = Bookmark.query.filter_by(
+            user_id=current_user.id,
+            post_id=post.id
+        ).first() is not None
 
         posts.append({
-            "id": post[0],
-            "title": post[1],
-            "content": post[2],
-            "user_id": post[3],
-            "created_at": post[4],
-            "attachment": post[5],
-            "is_image_attachment": bool(post[5]) and post[5].lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".webp")),
+            "id": post.id,
+            "title": post.title,
+            "content": post.content,
+            "user_id": post.user_id,
+            "created_at": post.created_at,
+            "attachment": post.attachment,
+            "is_image_attachment": bool(post.attachment)
+            and post.attachment.lower().endswith(
+                (".png", ".jpg", ".jpeg", ".gif", ".webp")
+            ),
             "like_count": like_count,
             "comment_count": comment_count,
             "comments": comments,
-            "is_bookmarked": cursor.fetchone() is not None
+            "is_bookmarked": is_bookmarked
         })
-    conn.close()
 
     return render_template(
         "profile.html",
@@ -959,6 +929,7 @@ def user_profile(username):
         following_count=following_count,
         is_following=is_following
     )
+
 @app.route("/comment/edit/<int:comment_id>", methods=["POST"])
 @login_required
 def edit_comment(comment_id):
@@ -1083,7 +1054,7 @@ def follow_user(user_id):
     if user_id == current_user.id:
         return {"success": False, "message": "You cannot follow yourself"}
 
-    user_to_follow = User.query.get(user_id)
+    user_to_follow = db.session.get(User, user_id)
 
     if not user_to_follow:
         return {"success": False, "message": "User not found"}, 404
@@ -1106,6 +1077,16 @@ def follow_user(user_id):
         db.session.add(new_follow)
         following = True
 
+        new_notification = Notification(
+            user_id=user_id,
+            actor_id=current_user.id,
+            type="follow",
+            post_id=None,
+            message=f"{current_user.username} started following you"
+        )
+
+        db.session.add(new_notification)
+
     db.session.commit()
 
     followers_count = Follower.query.filter_by(
@@ -1121,35 +1102,32 @@ def follow_user(user_id):
 @app.route("/notifications")
 @login_required
 def notifications():
-    conn = sqlite3.connect("users.db")
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
 
-    cursor.execute(
-        """
-        SELECT
-            notifications.id,
-            notifications.message,
-            notifications.created_at,
-            users.username AS actor_username
-        FROM notifications
-        JOIN users ON notifications.actor_id = users.id
-        WHERE notifications.user_id=?
-        ORDER BY notifications.created_at DESC
-        """,
-        (current_user.id,)
+    notifications = Notification.query.filter_by(
+        user_id=current_user.id
+    ).order_by(Notification.created_at.desc()).all()
+
+    for notification in notifications:
+        notification.is_read = 1
+
+    db.session.commit()
+
+    notification_data = []
+
+    for n in notifications:
+        actor = db.session.get(User, n.actor_id)
+
+        notification_data.append({
+            "id": n.id,
+            "message": n.message,
+            "created_at": n.created_at,
+            "actor_username": actor.username if actor else "Unknown"
+        })
+
+    return render_template(
+        "notifications.html",
+        notifications=notification_data
     )
-
-    notifications = cursor.fetchall()
-
-    cursor.execute(
-    "UPDATE notifications SET is_read=1 WHERE user_id=?",
-    (current_user.id,)
-)
-    conn.commit()
-    conn.close()
-
-    return render_template("notifications.html", notifications=notifications)
 
 @app.route("/delete-notification/<int:notification_id>", methods=["POST"])
 @login_required
